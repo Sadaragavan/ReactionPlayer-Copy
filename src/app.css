@@ -1,0 +1,328 @@
+@import 'tailwindcss' source(none);
+
+/* Scan only what is rendered. Automatic detection would also read docs/, README.md and any old build left in dist/
+   or dist-single/, which feeds stale class names back into the stylesheet. */
+@source './';
+@source '../index.html';
+
+/* ─────────────────────────────────────────────────────────────
+   Reaction Player — design tokens
+   Pure black is the interface. Yellow only ever marks what is
+   live or selected: the playhead, the active layer, a linked
+   state, the one primary action on a page.
+   ───────────────────────────────────────────────────────────── */
+
+/* Archivo carries both axes we use: weight (100–900) and width (62–125%).
+   Wide + heavy is reserved for page titles; everything else stays at 100%. */
+@font-face {
+  font-family: 'Archivo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url('./assets/fonts/archivo-latin-wdth.woff2') format('woff2-variations');
+}
+
+/* Cinzel is for the Home menu only: Roman capitals set it apart from Archivo's extended weight, like a title card.
+   One axis (weight 400–900), Latin subset. */
+@font-face {
+  font-family: 'Cinzel Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('./assets/fonts/cinzel-latin-wght.woff2') format('woff2-variations');
+}
+
+/* Home title screen. Plain custom properties rather than `@theme`, because Tailwind drops theme variables that no
+   utility uses, and these are read from component CSS. */
+:root {
+  --font-display: 'Cinzel Variable', 'Trajan Pro', 'Times New Roman', serif;
+  /* The warm light of the ember trail and the menu glow: hot centre, amber, deep orange rim. */
+  --ember-core: #fff3cf;
+  --ember: #ffc24d;
+  --ember-deep: #ff8a1f;
+  /* Menu text at rest, and its dimmer cousins for meta and links. */
+  --paper: #f7efd9;
+  --paper-2: #c9c3b8;
+  --paper-3: #8c8c92;
+}
+
+@theme {
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-ink: #000000;
+  --color-fg: #f4f4f4;
+  --color-fg-2: #9a9a9a;
+  --color-fg-3: #5f5f5f;
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-strong: rgb(255 255 255 / 0.24);
+  --color-hover: rgb(255 255 255 / 0.07);
+  --color-press: rgb(255 255 255 / 0.13);
+
+  --color-accent: #ffd400;
+  --color-accent-soft: rgb(255 212 0 / 0.14);
+  --color-accent-line: rgb(255 212 0 / 0.6);
+  --color-danger: #ff6b5e;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-morph: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --text-2xs: 0.6875rem; /* 11px */
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+/* Layered on purpose: unlayered CSS beats Tailwind utilities, so a bare
+   `button { padding: 0 }` would silently strip every padding / background class. */
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+    margin: 0;
+    background: #000;
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    overflow: hidden; /* every page manages its own scrolling */
+    overscroll-behavior: none;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #000;
+  }
+
+  /* Keyboard focus is always visible and always yellow. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Thin, dark scrollbars so long pages stay quiet. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.22) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.22);
+    border-radius: 8px;
+  }
+}
+
+/* ── Type helpers ─────────────────────────────────────────── */
+@layer components {
+  /* Page titles: extended and heavy, like a film title card. */
+  .title-wide {
+    font-stretch: 125%;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+  }
+
+  /* Navigation: Archivo opened up to 112 % width. */
+  .nav-wide {
+    font-stretch: 112%;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  /* Timecodes and numeric readouts never jiggle. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+/* ── Shared surfaces ──────────────────────────────────────── */
+@layer components {
+  /* A hairline-edged panel on pure black — no shadows, no tint. */
+  .panel {
+    background: #000;
+    border: 1px solid var(--color-line);
+  }
+
+  /* Floating menus are the one place a shadow is allowed. */
+  .float {
+    background: #000;
+    border: 1px solid var(--color-line-strong);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.85);
+  }
+}
+
+/* ── Motion ───────────────────────────────────────────────── */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in 140ms var(--ease-out-expo) both;
+}
+.fade-in {
+  animation: fade-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Tooltip (see actions/tooltip.ts) ─────────────────────── */
+@layer components {
+  .tip {
+    position: fixed;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 4px;
+    background: #000;
+    color: var(--color-fg);
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition:
+      opacity 110ms ease-out,
+      transform 140ms var(--ease-out-expo);
+  }
+  .tip[data-show='true'] {
+    opacity: 1;
+    transform: none;
+  }
+  .tip kbd {
+    padding: 0 5px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 3px;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: 11px;
+  }
+}
+
+/* ── Key cap ──────────────────────────────────────────────── */
+@layer components {
+  .kbd {
+    display: inline-flex;
+    min-width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    border: 1px solid var(--color-line-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--color-fg);
+    /* <kbd> defaults to the browser's monospace face; the whole interface is Archivo. */
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+}
+
+/* ── HUD bars (session top bar + transport dock) ───────────── */
+/* Hidden = faded, slid off its own edge, and out of the tab order and pointer reach.
+   Each bar owns its transition timing (see TopBar / Transport). */
+.hud-bar[data-show='false'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.hud-bar[data-edge='top'][data-show='false'] {
+  transform: translateY(-100%);
+}
+.hud-bar[data-edge='bottom'][data-show='false'] {
+  transform: translateY(100%);
+}
+
+/* A drop target lights up while a file hovers over it. */
+[data-dragging='true'] {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* ── Form fields ──────────────────────────────────────────── */
+@layer components {
+  .input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    background: #000;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 6px;
+    color: var(--color-fg);
+    transition: border-color 150ms;
+  }
+  .input::placeholder {
+    color: var(--color-fg-3);
+  }
+  .input:hover {
+    border-color: var(--color-fg-3);
+  }
+  .input:focus-visible {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+  .input:disabled {
+    opacity: 0.45;
+  }
+}

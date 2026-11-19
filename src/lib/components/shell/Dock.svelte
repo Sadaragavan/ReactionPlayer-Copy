@@ -5,11 +5,10 @@
    * Home, which is a title screen with its own menu, and the player, which has
    * its own docked HUD.
    */
-  import { Clapperboard, FolderOpen, Play, Power, Settings, SlidersHorizontal } from '@lucide/svelte';
+  import { Clapperboard, FolderOpen, House, Play, Power, Settings, SlidersHorizontal } from '@lucide/svelte';
   import { continueLast, quitApp } from '$lib/engine/appActions';
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
-  import { settings } from '$lib/stores/settings.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { timeAgo } from '$lib/utils/format';
   import Logo from './Logo.svelte';
@@ -31,6 +30,11 @@
   </div>
 
   <div class="flex flex-1 flex-col max-md:flex-row">
+    <button class={item} onclick={() => router.go('home')} aria-label="Home">
+      <House size={18} strokeWidth={1.8} class="shrink-0 text-fg-2 group-hover:text-fg" />
+      <span class="nav-wide text-[15px] text-fg-2 group-hover:text-fg max-md:sr-only">Home</span>
+    </button>
+
     <button class={item} disabled={!session.canContinue} onclick={continueLast} aria-label="Continue">
       <Play size={18} strokeWidth={1.9} class="shrink-0 text-accent" />
       <span class="min-w-0 max-md:sr-only">
@@ -78,19 +82,4 @@
     </button>
   </div>
 
-  <button
-    class="flex h-16 items-center gap-3 border-t border-line px-6 text-left transition-colors hover:bg-hover max-md:hidden"
-    onclick={() => router.go({ name: 'settings', tab: 'profile' })}
-    aria-label="Profile and plan"
-  >
-    <span class="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-line-strong text-[13px] font-semibold">
-      {#if settings.profile.avatar}
-        <img src={settings.profile.avatar} alt="" class="size-full object-cover" />
-      {:else}{(settings.profile.displayName || 'G').slice(0, 1).toUpperCase()}{/if}
-    </span>
-    <span class="min-w-0">
-      <span class="block truncate text-[13.5px] font-medium">{settings.profile.displayName || 'Guest'}</span>
-      <span class="block text-[12px] {settings.isPro ? 'text-accent' : 'text-fg-3'}">{settings.isPro ? 'Pro' : 'Free plan'}</span>
-    </span>
-  </button>
 </nav>

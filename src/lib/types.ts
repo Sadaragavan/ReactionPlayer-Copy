@@ -10,16 +10,16 @@ import type { Component } from 'svelte';
 /* ───────────────────────────── primitives ───────────────────────────── */
 
 export type ID = string;
-export type Tier = 'free' | 'pro';
 
 /** How the viewports are arranged. `custom` means the user placed them by hand. */
 export type LayoutType = 'split' | 'grid' | 'pip' | 'custom';
 
 /**
  * What a video *is* in the session.
- *  - `source`   the thing being reacted to. Always painted above every other layer.
- *  - `reaction` the reaction footage. Painted below the source.
- *  - `extra`    Pro-only third/fourth angles. Painted below the reaction.
+ *  - `source`   the thing being reacted to.
+ *  - `reaction` the reaction footage.
+ *  - `extra`    a third or fourth angle.
+ * Roles decide the slot a video takes in a layout and its default stacking; the stacking itself is each layer's `zIndex`.
  */
 export type VideoRole = 'source' | 'reaction' | 'extra';
 
@@ -55,6 +55,15 @@ export interface Rect {
 
 /** Where and how one video is drawn on the black canvas. */
 export interface LayerTransform extends Rect {
+  /**
+   * Stacking order: higher is painted on top and is hit first by the pointer. Values only matter relative to each
+   * other (ties are broken by video order). Old saved objects without one are migrated on load (`engine/migrate.ts`).
+   */
+  zIndex: number;
+  /** Hidden layers keep playing (and stay in sync) but are not drawn and cannot be hit. */
+  hidden?: boolean;
+  /** A locked layer cannot be moved, resized or selected by the pointer, and clicks pass through to the layers below. */
+  locked?: boolean;
   crop: Crop;
   /** 0–1. */
   opacity: number;
@@ -70,10 +79,12 @@ export interface SessionVideo {
   id: ID;
   role: VideoRole;
   title: string;
-  /** `file` sources get a fresh blob: URL each time the app starts (see mediaRegistry). */
+  /** `file` sources are local videos; on desktop they play from `filePath` through `local-media://` (see engine/media.ts). */
   kind: MediaKind;
-  /** Playable URL. For files this is empty until the file has been (re)linked. */
+  /** Playable URL for remote videos. Empty for local files. */
   url: string;
+  /** Absolute path of a local file (desktop). It is what lets a session reopen by itself after a restart. */
+  filePath?: string;
   fileName?: string;
   fileSize?: number;
   /** The video's own playhead in seconds. */
@@ -111,7 +122,7 @@ export interface Session {
   createdAt: number;
   /** Last time the user changed or played something in it (shown in the browser). */
   lastModified: number;
-  /** Storage revision stamp; cloud sync compares this to resolve conflicts. */
+  /** Last time the session was written to disk. */
   updatedAt: number;
   videos: SessionVideo[];
   alignment: Alignment;
@@ -130,8 +141,6 @@ export interface Session {
   /** JPEG data URL composite of the layers, for the session browser. */
   thumbnail?: string;
   presetId?: ID;
-  /** Set once the cloud adapter has acknowledged this revision. */
-  syncedAt?: number;
 }
 
 /* ───────────────────────────── presets ───────────────────────────── */
@@ -199,8 +208,6 @@ export interface PlaybackPrefs {
   loop: boolean;
 }
 
-export type BillingPlan = 'monthly' | 'yearly';
-
 export interface AppSettings {
   /** `null` = the built-in black canvas. Wallpapers are never blurred. */
   wallpaper: Wallpaper | null;
@@ -208,34 +215,13 @@ export interface AppSettings {
   wallpaperClear: boolean;
   /** Layout a new session starts in. */
   defaultLayout: Exclude<LayoutType, 'custom'>;
-  userTier: Tier;
   playback: PlaybackPrefs;
-  billing: { plan: BillingPlan; customerId?: string };
-}
-
-export interface Profile {
-  displayName: string;
-  email: string;
-  /** data: URL. */
-  avatar?: string;
-  createdAt: number;
-}
-
-/* ───────────────────────────── tiers ───────────────────────────── */
-
-export interface TierLimits {
-  maxVideos: number;
-  maxCustomPresets: number;
-  cloudSync: boolean;
-  advancedSampler: boolean;
-  /** Tallest picture (px) the tier plays without a notice. */
-  maxResolution: number;
 }
 
 /* ───────────────────────────── routing ───────────────────────────── */
 
 export type RouteName = 'home' | 'session' | 'presets' | 'sessions' | 'settings';
-export type SettingsTab = 'appearance' | 'preferences' | 'profile' | 'subscription';
+export type SettingsTab = 'appearance' | 'preferences';
 
 export interface Route {
   name: RouteName;
@@ -299,40 +285,4 @@ export interface MenuRequest {
   entries: MenuEntry[];
   /** Open upwards from (x, y) — for menus that belong to a control on the bottom edge. */
   above?: boolean;
-}
-
-/* ───────────────────────────── cloud sync hook ───────────────────────────── */
-
-/**
- * Implement this to back sessions with a server. The app calls `push` after
- * saves (Pro only) and `pull` from the Subscription page's “Sync now”.
- */
-export interface CloudSyncAdapter {
-  readonly name: string;
-  isAvailable(): boolean;
-  push(sessions: Session[]): Promise<{ syncedAt: number }>;
-  pull(): Promise<Session[]>;
-}
-
-/* ───────────────────────────── billing hook ───────────────────────────── */
-
-/** What starting a checkout leads to. */
-export type CheckoutResult =
-  /** Send the browser to the provider's hosted checkout. */
-  | { kind: 'redirect'; url: string }
-  /** The plan changed without leaving the page (the local demo flow). */
-  | { kind: 'activated' };
-
-/**
- * Implement this to charge for Pro. The Subscription page only ever talks to
- * this interface, so swapping the demo for Stripe (or anything else) touches
- * `billing.ts` and nothing in the UI.
- */
-export interface BillingAdapter {
-  readonly name: string;
-  /** True when a real payment provider is wired up; false runs the local demo flow. */
-  readonly live: boolean;
-  startCheckout(plan: BillingPlan, profile: Profile): Promise<CheckoutResult>;
-  /** The provider's customer portal (change card, invoices, cancel), or null when there is none. */
-  portalUrl(customerId: string | undefined): string | null;
 }

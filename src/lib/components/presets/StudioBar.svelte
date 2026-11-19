@@ -1,7 +1,7 @@
 <script lang="ts">
   /** The top edge of the studio: back to the library, the preset's name, canvas shape, video count and save. */
   import { ArrowLeft, Save } from '@lucide/svelte';
-  import { settings } from '$lib/stores/settings.svelte';
+  import { MAX_VIDEOS } from '$lib/constants';
   import Button from '../ui/Button.svelte';
   import IconButton from '../ui/IconButton.svelte';
   import Segmented from '../ui/Segmented.svelte';
@@ -15,15 +15,7 @@
 
   let { studio, onback, onsave }: Props = $props();
 
-  /** Three and four videos are a Pro feature, so those options are there but switched off on the free plan. */
-  const counts = $derived(
-    [2, 3, 4].map((n) => ({
-      value: n,
-      label: String(n),
-      disabled: n > settings.limits.maxVideos,
-      title: n > settings.limits.maxVideos ? 'Three or four videos need Pro' : undefined
-    }))
-  );
+  const counts = Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => ({ value: i + 2, label: String(i + 2) }));
 </script>
 
 <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-3 py-2 md:px-4">

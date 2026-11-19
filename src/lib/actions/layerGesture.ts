@@ -27,60 +27,65 @@ export interface LayerGestureOptions {
   onEnd?: () => void;
 }
 
-export function layerGesture(node: HTMLElement, options: LayerGestureOptions) {
-  let o = options;
+/**
+ * Starts a move or resize from a `pointerdown` that `node` received. `node` is the element that captures the pointer
+ * and gets `data-gesture` while the drag runs. The player's Stage calls this directly (it decides which layer was hit);
+ * `layerGesture` below is the same thing bound to one element, for the alignment studio.
+ */
+export function beginGesture(node: HTMLElement, e: PointerEvent, o: LayerGestureOptions): void {
+  if (e.button !== 0 || !o.enabled()) return;
+  const stage = o.stage();
+  if (!stage) return;
+  const box = stage.getBoundingClientRect();
+  if (!box.width || !box.height) return;
 
-  const onDown = (e: PointerEvent) => {
-    if (e.button !== 0 || !o.enabled()) return;
-    const stage = o.stage();
-    if (!stage) return;
-    const box = stage.getBoundingClientRect();
-    if (!box.width || !box.height) return;
+  const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-handle]');
+  const handle = (grip?.dataset.handle as Handle | undefined) ?? null;
+  const start = { ...o.rect() };
+  const x0 = e.clientX;
+  const y0 = e.clientY;
 
-    const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-handle]');
-    const handle = (grip?.dataset.handle as Handle | undefined) ?? null;
-    const start = { ...o.rect() };
-    const x0 = e.clientX;
-    const y0 = e.clientY;
+  e.preventDefault();
+  e.stopPropagation();
+  node.setPointerCapture(e.pointerId);
+  node.dataset.gesture = handle ? 'resize' : 'move';
+  o.onStart?.();
 
-    e.preventDefault();
-    e.stopPropagation();
-    node.setPointerCapture(e.pointerId);
-    node.dataset.gesture = handle ? 'resize' : 'move';
-    o.onStart?.();
-
-    const onMove = (m: PointerEvent) => {
-      const dx = (m.clientX - x0) / box.width;
-      const dy = (m.clientY - y0) / box.height;
-      let next: Rect;
-      if (handle) {
-        next = resizeRect(start, handle, dx, dy, m.shiftKey ? null : o.aspect(), MIN_LAYER_SIZE);
-        o.onGuides?.([]);
-      } else {
-        next = moveRect(start, dx, dy);
-        if (m.altKey) o.onGuides?.([]);
-        else {
-          const snapped = snapMove(next, o.others(), SNAP_DISTANCE);
-          next = snapped.rect;
-          o.onGuides?.(snapped.guides);
-        }
-      }
-      o.onChange({ x: roundTo(next.x), y: roundTo(next.y), w: roundTo(next.w), h: roundTo(next.h) });
-    };
-
-    const finish = () => {
-      node.removeEventListener('pointermove', onMove);
-      node.removeEventListener('pointerup', finish);
-      node.removeEventListener('pointercancel', finish);
-      delete node.dataset.gesture;
+  const onMove = (m: PointerEvent) => {
+    const dx = (m.clientX - x0) / box.width;
+    const dy = (m.clientY - y0) / box.height;
+    let next: Rect;
+    if (handle) {
+      next = resizeRect(start, handle, dx, dy, m.shiftKey ? null : o.aspect(), MIN_LAYER_SIZE);
       o.onGuides?.([]);
-      o.onEnd?.();
-    };
-    node.addEventListener('pointermove', onMove);
-    node.addEventListener('pointerup', finish);
-    node.addEventListener('pointercancel', finish);
+    } else {
+      next = moveRect(start, dx, dy);
+      if (m.altKey) o.onGuides?.([]);
+      else {
+        const snapped = snapMove(next, o.others(), SNAP_DISTANCE);
+        next = snapped.rect;
+        o.onGuides?.(snapped.guides);
+      }
+    }
+    o.onChange({ x: roundTo(next.x), y: roundTo(next.y), w: roundTo(next.w), h: roundTo(next.h) });
   };
 
+  const finish = () => {
+    node.removeEventListener('pointermove', onMove);
+    node.removeEventListener('pointerup', finish);
+    node.removeEventListener('pointercancel', finish);
+    delete node.dataset.gesture;
+    o.onGuides?.([]);
+    o.onEnd?.();
+  };
+  node.addEventListener('pointermove', onMove);
+  node.addEventListener('pointerup', finish);
+  node.addEventListener('pointercancel', finish);
+}
+
+export function layerGesture(node: HTMLElement, options: LayerGestureOptions) {
+  let o = options;
+  const onDown = (e: PointerEvent) => beginGesture(node, e, o);
   node.addEventListener('pointerdown', onDown);
   return {
     update(next: LayerGestureOptions) {

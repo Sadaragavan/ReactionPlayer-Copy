@@ -2,19 +2,19 @@
  * State of the alignment studio.
  *
  * The studio edits *slots* — exactly what a preset stores: slot 0 is the source,
- * slot 1 the reaction, slots 2–3 the Pro extras. Each slot carries the
+ * slot 1 the reaction, slots 2–3 the extras. Each slot carries the
  * placement being tuned, the still sampled from its video (the newest capture)
- * and, for Pro, the stills before it. One instance lives for as long as the
+ * and the stills before it (the last eight). One instance lives for as long as the
  * studio is open; `dispose()` frees the sampling clips.
  */
-import { CANVAS_ASPECTS, MIN_LAYER_SIZE, FALLBACK_FPS } from '$lib/constants';
+import { CANVAS_ASPECTS, MAX_VIDEOS, MIN_LAYER_SIZE, FALLBACK_FPS } from '$lib/constants';
 import { captureErrorMessage, canvasRatio, whenSettled } from '$lib/engine/capture';
 import { buildLayout, coordinatesToSlots } from '$lib/engine/layouts';
+import { pickedUrl, type PickedFile } from '$lib/engine/media';
 import { playback } from '$lib/engine/playback.svelte';
 import { roleForIndex } from '$lib/engine/sessionFactory';
 import { presets } from '$lib/stores/presets.svelte';
 import { session } from '$lib/stores/session.svelte';
-import { settings } from '$lib/stores/settings.svelte';
 import { ui } from '$lib/stores/ui.svelte';
 import type { CanvasAspect, ID, LayerTransform, Preset, Rect, SampledFrame, VideoRole } from '$lib/types';
 import { clamp, pixelAspectFor, resizeRect, roundTo, toNormAspect } from '$lib/utils/geometry';
@@ -34,7 +34,7 @@ export interface StudioSlot {
   t: LayerTransform;
   /** The still being aligned — the newest capture. */
   frame: SampledFrame | null;
-  /** Stills captured before it, newest first. Only kept on Pro. */
+  /** Stills captured before it, newest first (up to eight). */
   history: SampledFrame[];
   /** Where the stills come from, for the sampler panel. */
   label: string;
@@ -111,7 +111,7 @@ export class Studio {
   /* ── slots ───────────────────────────────────────────────── */
 
   setCount(n: number) {
-    const next = clamp(n, 2, settings.limits.maxVideos);
+    const next = clamp(n, 2, MAX_VIDEOS);
     if (next < this.slots.length) {
       for (let i = next; i < this.slots.length; i++) this.#release(i);
       this.slots = this.slots.slice(0, next);
@@ -163,16 +163,17 @@ export class Studio {
     return this.#clips.get(i)?.el ?? null;
   }
 
-  async loadFile(i: number, file: File) {
-    const url = URL.createObjectURL(file);
-    await this.#open(i, url, file.name, { objectUrl: url });
+  /** Opens a picked or dropped video. On desktop it plays from its path; in a browser from a blob URL. */
+  async loadFile(i: number, picked: PickedFile) {
+    const url = pickedUrl(picked);
+    await this.#open(i, url, picked.name, picked.path ? { cors: true } : { objectUrl: url });
   }
 
   async loadUrl(i: number, url: string, name: string) {
     await this.#open(i, url, name, {});
   }
 
-  async #open(i: number, src: string, name: string, opts: { objectUrl?: string }) {
+  async #open(i: number, src: string, name: string, opts: { objectUrl?: string; cors?: boolean }) {
     const slot = this.slots[i];
     if (!slot) return;
     slot.busy = true;
@@ -248,7 +249,7 @@ export class Studio {
   #setFrame(i: number, frame: SampledFrame, label: string) {
     const slot = this.slots[i];
     if (!slot) return;
-    if (slot.frame && settings.limits.advancedSampler) slot.history = [slot.frame, ...slot.history].slice(0, HISTORY_LIMIT);
+    if (slot.frame) slot.history = [slot.frame, ...slot.history].slice(0, HISTORY_LIMIT);
     slot.frame = frame;
     slot.label = label;
   }
@@ -269,8 +270,8 @@ export class Studio {
 
   /* ── saving ──────────────────────────────────────────────── */
 
-  /** Writes the preset (replacing the one being edited). Resolves null when the free plan's limit is reached. */
-  async save(): Promise<Preset | null> {
+  /** Writes the preset, replacing the one being edited. */
+  async save(): Promise<Preset> {
     this.saving = true;
     try {
       const snap = $state.snapshot(this.slots) as StudioSlot[];

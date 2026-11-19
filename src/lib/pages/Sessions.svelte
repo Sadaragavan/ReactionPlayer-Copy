@@ -18,7 +18,7 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import type { Session } from '$lib/types';
-  import { pickFiles } from '$lib/utils/file';
+  import { openJSONText } from '$lib/utils/file';
   import { plural } from '$lib/utils/format';
 
   const SORTS: { value: SortKey; label: string }[] = [
@@ -47,7 +47,7 @@
   async function exportConfig(s: Session) {
     const outcome = await session.exportJSON(s.id);
     if (outcome === 'saved') ui.toast('Config saved. It holds the layout and sync, not your video files.', 'success');
-    else if (outcome === 'failed') ui.toast('This page could not save the config file.', 'error');
+    else if (outcome === 'failed') ui.toast('The config file could not be saved.', 'error');
   }
 
   async function confirmDelete() {
@@ -59,12 +59,11 @@
   }
 
   async function importConfig() {
-    const [file] = await pickFiles('application/json,.json', false);
-    if (!file) return;
-    const result = await session.importConfig(await file.text());
+    const text = await openJSONText();
+    if (text === null) return;
+    const result = await session.importConfig(text);
     if ('error' in result) {
-      const upgrade = result.upgrade ? { label: 'See Pro', run: () => router.go({ name: 'settings', tab: 'subscription' }) } : undefined;
-      ui.toast(result.error, 'error', upgrade);
+      ui.toast(result.error, 'error');
     } else {
       ui.toast(`Imported “${result.name}”. Choose its video files when you open it.`, 'success');
     }

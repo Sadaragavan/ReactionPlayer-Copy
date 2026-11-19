@@ -1,4 +1,5 @@
-/** Browser file, canvas and clipboard helpers. */
+/** File, canvas and clipboard helpers. On desktop the native dialogs and the native clipboard are used; the browser path is the fallback. */
+import { desktop } from '../platform';
 
 export function readAsDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -15,8 +16,15 @@ export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png', qual
   );
 }
 
-/** Writes the canvas to the system clipboard as a PNG. Throws when the browser refuses. */
+/**
+ * Writes the canvas to the system clipboard as a PNG. Throws when it is refused.
+ * Desktop: Electron's native clipboard, which behaves the same on Wayland, X11, Windows and macOS.
+ */
 export async function copyCanvasToClipboard(canvas: HTMLCanvasElement): Promise<void> {
+  if (desktop) {
+    await desktop.copyImage(canvas.toDataURL('image/png'));
+    return;
+  }
   if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
     throw new Error('This browser cannot copy images to the clipboard.');
   }
@@ -67,8 +75,19 @@ export async function saveBlob(blob: Blob, filename: string): Promise<SaveOutcom
   return 'saved';
 }
 
-export const saveJSON = (data: unknown, filename: string) =>
-  saveBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), filename);
+/** Offers a `.json` file: the native save dialog on desktop, a download in the browser. */
+export async function saveJSON(data: unknown, filename: string): Promise<SaveOutcome> {
+  const text = JSON.stringify(data, null, 2);
+  if (desktop) return desktop.saveJson(filename, text);
+  return saveBlob(new Blob([text], { type: 'application/json' }), filename);
+}
+
+/** Asks for a session `.json` and returns its text, or null when the dialog was dismissed. */
+export async function openJSONText(): Promise<string | null> {
+  if (desktop) return (await desktop.openJson())?.text ?? null;
+  const [file] = await pickFiles('application/json,.json', false);
+  return file ? file.text() : null;
+}
 
 /** `my_reaction-clip.final.mp4` → `my reaction clip final` */
 export function titleFromFileName(name: string): string {
@@ -102,16 +121,4 @@ export function pickFiles(accept: string, multiple = false): Promise<File[]> {
     document.body.appendChild(input);
     input.click();
   });
-}
-
-/** Downscales an image file to a square-ish JPEG data URL (used for avatars). */
-export async function downscaleToDataURL(file: Blob, maxEdge = 256, quality = 0.86): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas.toDataURL('image/jpeg', quality);
 }

@@ -11,7 +11,7 @@ import { ZERO_CROP, clamp } from '$lib/utils/geometry';
 /** Longest edge of a sampled still: sharp enough to judge an edge, light enough to keep several in memory. */
 export const SAMPLE_MAX_EDGE = 1600;
 
-/** How many earlier stills a slot keeps (Pro: advanced sampler). */
+/** How many earlier stills a slot keeps. */
 export const HISTORY_LIMIT = 8;
 
 export interface Clip {
@@ -78,6 +78,7 @@ export async function composeThumbnail(layers: ThumbLayer[], shape: Exclude<Canv
   const stage: StageLayer[] = await Promise.all(
     layers.map(async ({ role, t, frame }) => ({
       role,
+      zIndex: t.zIndex,
       rect: { x: t.x, y: t.y, w: t.w, h: t.h },
       crop: t.crop,
       fit: t.fit,

@@ -4,7 +4,7 @@
  */
 import type { CanvasAspect, ID, LayoutType, MasterAudioPolicy, MediaKind, Preset, Session, SessionVideo, VideoRole } from '../types';
 import { uid } from '../utils/format';
-import type { FsFileHandle } from './media';
+import type { FsFileHandle, PickedFile } from './media';
 import { buildLayout, slotsToCoordinates } from './layouts';
 import { rebaseOffsets } from './timeline';
 
@@ -14,6 +14,8 @@ export interface NewVideoInput {
   /** Remote URL, `demo:` URL, or '' for a local file. */
   url: string;
   file?: File;
+  /** Absolute path on disk (desktop): kept so the session reopens the file by itself. */
+  path?: string;
   handle?: FsFileHandle;
   fileName?: string;
   fileSize?: number;
@@ -35,7 +37,7 @@ export interface NewSessionInput {
 export interface BuiltSession {
   session: Session;
   /** Local files to register under their new video ids. */
-  files: { id: ID; file: File; handle?: FsFileHandle }[];
+  files: { id: ID; picked: PickedFile }[];
 }
 
 /** Slot order is the role order: source, reaction, then Pro extras. */
@@ -59,6 +61,7 @@ export function buildSession(input: NewSessionInput, now = Date.now()): BuiltSes
     title: v.title,
     kind: v.kind,
     url: v.kind === 'file' ? '' : v.url,
+    filePath: v.kind === 'file' ? v.path : undefined,
     fileName: v.fileName ?? v.file?.name,
     fileSize: v.fileSize ?? v.file?.size,
     currentTime: 0,
@@ -97,7 +100,9 @@ export function buildSession(input: NewSessionInput, now = Date.now()): BuiltSes
     presetId: preset?.id
   };
 
-  const files = inputs.flatMap((v, i) => (v.file ? [{ id: videos[i].id, file: v.file, handle: v.handle }] : []));
+  const files = inputs.flatMap((v, i) =>
+    v.file || v.path ? [{ id: videos[i].id, picked: { file: v.file, path: v.path, handle: v.handle, name: v.fileName ?? v.file?.name ?? '', size: v.fileSize ?? v.file?.size ?? 0 } }] : []
+  );
   return { session, files };
 }
 
@@ -123,7 +128,6 @@ export function cloneSession(src: Session, now = Date.now()): { session: Session
     createdAt: now,
     lastModified: now,
     updatedAt: now,
-    syncedAt: undefined,
     videos,
     alignment: { ...src.alignment, coordinates, base: src.alignment.base?.map((s) => ({ ...s, crop: { ...s.crop } })) },
     masterId: idMap[src.masterId] ?? videos[0].id
@@ -131,9 +135,9 @@ export function cloneSession(src: Session, now = Date.now()): { session: Session
   return { session, idMap };
 }
 
-/** A portable description of a session: no blob URLs, no thumbnail. Pass a plain object. */
+/** A portable description of a session: no blob URLs, no thumbnail. Local videos keep their file path, so the same machine reopens them. Pass a plain object. */
 export function exportConfig(session: Session) {
-  const { thumbnail: _thumbnail, syncedAt: _syncedAt, ...rest } = session;
+  const { thumbnail: _thumbnail, ...rest } = session;
   return {
     app: 'reaction-player',
     version: 1,

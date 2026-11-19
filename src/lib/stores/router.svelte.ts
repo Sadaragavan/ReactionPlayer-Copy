@@ -2,18 +2,18 @@
  * Hash router.
  *
  * Hash routes need no server rewrites, so the build works from any static host
- * (or from a single inlined HTML file). Settings is one route with four tabs:
+ * (or from `file://`, which is how the desktop app loads). Settings is one route with two tabs:
  *
  *   #/                      Home hub
  *   #/session               Playback interface
  *   #/presets               Presets & frame-sampling studio
  *   #/sessions              Session browser
- *   #/settings/<tab>        appearance | preferences | profile | subscription
+ *   #/settings/<tab>        appearance | preferences
  */
 import type { Route, RouteName, SettingsTab } from '../types';
 
 const NAMES: RouteName[] = ['home', 'session', 'presets', 'sessions', 'settings'];
-export const SETTINGS_TABS: SettingsTab[] = ['appearance', 'preferences', 'profile', 'subscription'];
+export const SETTINGS_TABS: SettingsTab[] = ['appearance', 'preferences'];
 
 export function parseHash(hash: string): Route {
   const [first, second] = hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);

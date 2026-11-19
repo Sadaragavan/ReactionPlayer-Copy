@@ -1,10 +1,10 @@
 <script lang="ts">
   /**
-   * Preferences: how playback, sync and the controls behave, and the data this
-   * browser holds. Every control writes straight through to `settings`, so there
+   * Preferences: how playback, sync and the controls behave, and the data the
+   * app keeps on this computer. Every control writes straight through to `settings`, so there
    * is no Save button; the player reads the same values live.
    */
-  import { Keyboard, RotateCcw, Trash } from '@lucide/svelte';
+  import { FolderOpen, Keyboard, RotateCcw, Trash } from '@lucide/svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
   import NumberField from '$lib/components/ui/NumberField.svelte';
@@ -12,6 +12,7 @@
   import Slider from '$lib/components/ui/Slider.svelte';
   import Switch from '$lib/components/ui/Switch.svelte';
   import { playback as playbackEngine } from '$lib/engine/playback.svelte';
+  import { desktop } from '$lib/platform';
   import { clearAllLocalData } from '$lib/stores/persistence';
   import { session } from '$lib/stores/session.svelte';
   import { settings } from '$lib/stores/settings.svelte';
@@ -135,17 +136,22 @@
     <Switch label="Keep controls visible while paused" checked={p.keepHudWhilePaused} onchange={(v) => settings.patchPlayback({ keepHudWhilePaused: v })} />
   </SettingRow>
 
-  <SettingRow title="Keyboard shortcuts" hint="Space, L, T, F, the arrows and more. Press ? anywhere to see them.">
+  <SettingRow title="Keyboard shortcuts" hint="Space, L, T, F, [ and ] for layer order, the arrows and more. Press ? anywhere to see them.">
     <Button variant="secondary" icon={Keyboard} onclick={() => (ui.shortcutsOpen = true)}>Show shortcuts</Button>
   </SettingRow>
 </Section>
 
-<Section title="This device" intro="Sessions, presets and settings live in this browser only. Pro adds cloud sync.">
+<Section title="This computer" intro={desktop ? 'Sessions, presets, settings and the wallpaper are plain files in the app’s data folder. Nothing leaves this computer.' : 'Sessions, presets and settings live in this browser only.'}>
+  {#if desktop}
+    <SettingRow title="Data folder" hint="Where settings.json, presets.json and your sessions are kept.">
+      <Button variant="secondary" icon={FolderOpen} onclick={() => void desktop?.revealDataFolder()}>Open folder</Button>
+    </SettingRow>
+  {/if}
   <SettingRow title="Reset settings" hint="Puts every preference above back to its default. Sessions and presets stay.">
     <Button variant="secondary" icon={RotateCcw} onclick={() => (confirm = 'reset')}>Reset settings</Button>
   </SettingRow>
 
-  <SettingRow title="Clear all data" hint="Deletes every saved session, preset, the wallpaper, your profile and settings from this browser. Your video files are not touched.">
+  <SettingRow title="Clear all data" hint="Deletes every saved session, preset, the wallpaper and your settings from this computer. Your video files are not touched.">
     <Button variant="danger" icon={Trash} onclick={() => (confirm = 'wipe')}>Clear all data</Button>
   </SettingRow>
 </Section>
@@ -158,9 +164,9 @@
 >
   <p class="p-5 text-fg-2">
     {#if confirm === 'wipe'}
-      This removes everything Reaction Player has stored in this browser and cannot be undone. Export any session you want to keep first.
+      This removes everything Reaction Player has stored on this computer and cannot be undone. Export any session you want to keep first.
     {:else}
-      Every preference on this page returns to its default. Your plan, wallpaper, sessions and presets are kept.
+      Every preference on this page returns to its default. Your wallpaper, sessions and presets are kept.
     {/if}
   </p>
   {#snippet footer()}

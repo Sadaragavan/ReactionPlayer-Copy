@@ -1,29 +1,30 @@
 # Reaction Player — build notes (read this first after any restart)
 
-Run from the project root: `npm run dev`, `npm run check` (svelte-check), `npm run build`, `npm run build:single`.
-`README.md` covers usage, plans and payment; `docs/ARCHITECTURE.md` covers how the pieces fit.
+Run from the project root: `npm run dev` (Electron), `npm run dev:web` (browser), `npm run check`, `npm test`, `npm run build`,
+`npm run dist:linux`. `README.md` covers usage, packaging and the desktop features; `docs/ARCHITECTURE.md` covers how the pieces fit.
 
-Stack: Svelte 5 runes · Vite 8 · Tailwind 4 (`@theme` tokens in `src/app.css`) · `@lucide/svelte` · Archivo variable font
+Stack: Electron (electron-vite, electron-builder) · Svelte 5 runes · Vite 8 · Tailwind 4 (`@theme` tokens in `src/app.css`) · `@lucide/svelte` · Archivo variable font
 (plus Cinzel, on Home's title screen only).
-Hash router (`#/`, `#/session`, `#/presets`, `#/sessions`, `#/settings/<appearance|preferences|profile|subscription>`).
+Hash router (`#/`, `#/session`, `#/presets`, `#/sessions`, `#/settings/<appearance|preferences>`).
 The root font size is 14 px, so Tailwind spacing utilities scale by 0.875; explicit `px` values and border widths do not.
 
-## Status: complete
+## Status
 
-- [x] Home, New session, Session (player), Load session, Presets and alignment studio, Settings (four tabs)
+- [x] Home, New session, Session (player), Load session, Presets and alignment studio, Settings (two tabs)
 - [x] Sync engine, including videos of unequal length
-- [x] Free and Pro tiers, Stripe Payment Link seam, cloud sync seam (both with working local fallbacks)
-- [x] Browser verification (see the log below)
-- [x] Production build, single-file build, hosted live preview, README, architecture doc, UI element inventory, source zip
-- [x] Private GitHub repository (`Sadaragavan/ReactionPlayer`, branch `main`) with a changelog and CI
+- [x] Desktop app: Electron main and preload, `local-media://` streaming, file persistence, native dialogs, clipboard and fullscreen
+- [x] Everything unlocked: tiers, billing, cloud sync, profile and plan badges removed
+- [x] Free layer ordering: `zIndex`, Layers panel, context menu, `[` `]` shortcuts, per-layer hide and lock, migration of old saves
+- [x] Packaging (pacman, AppImage, tar.gz, NSIS, portable, dmg, zip) and the GitHub Actions workflow
+- [x] Unit tests (`npm test`)
 
 ## Design rules (decided, so do not re-debate)
 
 - True `#000` everywhere, hairline borders (`border-line`, `border-line-strong`), square-ish corners, **no blur anywhere**.
 - Yellow `#FFD400` (`text-accent`, `bg-accent`) only marks live or selected things: the source layer, the playhead, the linked
   state, one primary button.
-- Reaction layers are white or grey, with a dashed outline when selected. The source layer has a yellow outline and is
-  **always painted on top** (`paintOrder` in `engine/layouts.ts`).
+- Reaction layers are white or grey, with a dashed outline when selected. The source layer has a yellow outline. Stacking
+  is each layer's `zIndex` (new layouts put the source on top).
 - Archivo only. Page titles use `.title-wide` (width 125, weight 800). Numbers use `.num` (tabular). Sentence case, no all
   caps, no eyebrows.
 - Icon-only HUD buttons use `IconButton` (its label is both the tooltip and the aria-label). Tooltips: `use:tip={{text,kbd,side}}`.
@@ -48,41 +49,38 @@ used). It is the only place that breaks the rules above, and it is kept to `comp
   60 times a second while the pointer moves and about 30 for the drifting sparks at rest; it stops once Home is left and pauses
   while the tab is hidden. Touch gets a small spray of sparks where it lands, not a trail.
 - **Size.** Targets are at least 44 px on a coarse pointer (38 px on a short landscape screen). Portrait screens up to 900 px
-  stack into one column; below 720 px the plan block keeps only the tier and version; below 420 px of height the screen scrolls
+  stack into one column; below 720 px the corner keeps only the version; below 420 px of height the screen scrolls
   instead of clipping.
-- **The plan block** is generated from `TIER_LIMITS` through `settings.limits`, like the table in Settings → Subscription, so it
-  cannot promise more than the code enforces.
 - Every other page keeps the plain Dock look. Do not bring Cinzel, glow or the trail to them without deciding it here first.
 
 ## What exists
 
 - `lib/types.ts` `Session`, `SessionVideo`, `Alignment`, `LayerTransform` (`x y w h` in 0..1, `crop`, `opacity`, `fit`, `aspect`),
-  `Preset`, `AppSettings`, `PlaybackPrefs`, `MenuEntry`, and the `BillingAdapter` and `CloudSyncAdapter` contracts.
-- `lib/constants.ts` `TIER_LIMITS`, `PRICING`, `DEFAULT_SETTINGS`, `SHORTCUTS` (with a `{step}` placeholder the dialog fills in),
+  `Preset`, `AppSettings`, `PlaybackPrefs`, `MenuEntry`. `LayerTransform` also has `zIndex`, `hidden`, `locked`.
+- `lib/constants.ts` `MAX_VIDEOS`, `DEFAULT_SETTINGS`, `SHORTCUTS` (with a `{step}` placeholder the dialog fills in),
   `ASPECT_OPTIONS`, `CANVAS_ASPECTS`, `MIN_LAYER_SIZE`, `SNAP_DISTANCE`, `PLAYBACK_RATES`, `OFFSET_STEPS`, `HARD_SEEK_THRESHOLD_S`.
-- Stores (singletons): `session`, `settings`, `presets`, `router`, `ui`, plus `persistence.ts` for LocalStorage and IndexedDB.
+- Stores (singletons): `session`, `settings`, `presets`, `router`, `ui`, plus `persistence.ts` (files on desktop, LocalStorage and IndexedDB in a browser).
   - `session`: `current`, `saved`, `lastId`, `selectedId`, `master`, `canContinue`, `lastSession`; `create`, `open`, `resume`, `save`,
-    `close`, `duplicate`, `remove`, `rename`, `exportJSON`, `syncAll`, `updateVideo`, `setVolume`, `toggleMute`, `setRate`, `setOffset`,
+    `close`, `duplicate`, `remove`, `rename`, `exportJSON`, `importConfig`, `updateVideo`, `setVolume`, `toggleMute`, `setRate`, `setOffset`,
     `nudgeOffset`, `setMaster`, `relink`, `select`, `setLayer`, `resetLayer`, `applyLayout`, `applyPreset`, `setLocked`, `setTheater`,
-    `setCanvasAspect`, `recordTimes`.
-  - `settings`: `settings`, `profile`, `tier`, `isPro`, `limits`, `playback`, `wallpaper`; `patchPlayback`, `setTier`, `setPlan`,
-    `setWallpaper`, `updateProfile`, `resetSettings`.
-  - `presets`: `builtIn`, `custom`, `all`, `forCount(n)`, `canAddCustom`, `save`, `rename`, `remove`.
-  - `ui`: `toast(msg, kind, action?)`, `openMenu(x, y, entries)`, `newSessionOpen`, `shortcutsOpen`, `dormant`.
+    `setCanvasAspect`, `recordTimes`, `reorderLayer`, `canReorderLayer`, `setStackOrder`.
+  - `settings`: `settings`, `playback`, `wallpaper`; `patchPlayback`, `setWallpaper`, `setWallpaperClear`, `setDefaultLayout`, `resetSettings`.
+  - `presets`: `builtIn`, `custom`, `all`, `forCount(n)`, `save`, `rename`, `remove`.
+  - `ui`: `toast(msg, kind, action?)`, `openMenu(x, y, entries)`, `newSessionOpen`, `shortcutsOpen`.
   - `router`: `go('home' | { name: 'settings', tab })`, `hrefFor(route)`.
 - Engine: `playback.svelte.ts` (the `playback` singleton: clock, transport, drift correction, frame stepping, copy frame,
   thumbnails), `timeline.ts` (pure timeline and drift maths), `track.ts` (one `<video>` plus frame-rate measurement),
-  `layouts.ts`, `capture.ts`, `media.ts`, `probe.ts`, `aspect.ts`, `demo.ts`, `sessionFactory.ts`, `importConfig.ts`, and
+  `layouts.ts`, `zorder.ts` (stacking and hit-testing), `migrate.ts`, `capture.ts`, `media.ts`, `probe.ts`, `aspect.ts`, `demo.ts`, `sessionFactory.ts`, `importConfig.ts`, and
   `appActions.ts` (`continueLast` and `quitApp`, shared by the Dock and the Home menu so they cannot drift apart).
-- Utilities: `geometry.ts`, `format.ts`, `file.ts` (`saveBlob` and `saveJSON`, which use the viewer's `downloads` capability when
-  sandboxed and a normal download otherwise; `pickFiles`, `downscaleToDataURL`, `copyCanvasToClipboard`), `fullscreen.ts`, and
+- Utilities: `geometry.ts`, `format.ts`, `file.ts` (`saveJSON` and `openJSONText`, which use the native dialogs on desktop; `saveBlob` and `pickFiles` for the browser;
+  `copyCanvasToClipboard`, which uses Electron's clipboard on desktop), `fullscreen.ts`, and
   `embers.ts` (`EmberField`, the pointer glow's canvas engine; it has no Svelte in it).
-- UI kit `components/ui/`: Button, IconButton, Modal, ContextMenu, MenuPanel, Segmented, Slider, NumberField, Switch, Toasts, ProBadge,
+- UI kit `components/ui/`: Button, IconButton, Modal, ContextMenu, MenuPanel, Segmented, Slider, NumberField, Switch, Toasts,
   EmptyState, LayoutPreview, ShortcutsDialog. Actions: `tip`, `dropzone`, `portal`, `focusTrap`, `clickOutside`, `layerGesture`, `streak`.
-- Home `components/home/`: `TitleMenu.svelte` (the menu, the small links and the plan block), `EmberTrail.svelte` (mounts an
+- Home `components/home/`: `TitleMenu.svelte` (the menu, the small links and the version), `EmberTrail.svelte` (mounts an
   `EmberField` on a canvas over the page), and the New session dialog parts. `pages/Home.svelte` lays the wallpaper, the edge shade,
   the menu and the trail in one box that is also the drop target for videos.
-- `__APP_VERSION__` (the "v0.1.0" in the plan block) is defined in `vite.config.ts` from `package.json` and typed in `src/globals.d.ts`.
+- `__APP_VERSION__` (the version on Home) is defined in `electron.vite.config.ts` and `vite.config.ts` from `package.json` and typed in `src/globals.d.ts`.
 - Demo clips: `src/assets/demo/source.webm` (flashes at 2.0 s and 8.0 s) and `reaction.webm` (3.5 s and 9.5 s), so the reaction
   needs `offsetMs = +1500` to line up. `scripts/make-demo-clips.sh` regenerates them.
 
@@ -94,45 +92,33 @@ used). It is the only place that breaks the rules above, and it is kept to `comp
   has footage.
 - **Lane heights** come from one number. `LANE_H` in `components/session/metrics.ts` is exposed as `--lane` on the transport, and
   the master lane, the per-video lanes and the stage inset all read it, so the dock and the canvas cannot drift apart.
-- **The plan table in Settings → Subscription must say what the code enforces.** Enforced today: 2 or 4 videos, up to 1080p or 4K,
-  cloud sync, 3 or unlimited custom presets, and the last eight captures per video in the studio (Pro). Onion skin, wipe and crop are free.
 - **The shortcut list** is `SHORTCUTS` in `constants.ts` and must match the `switch` in `pages/Session.svelte`.
-- **Local files** are never persisted, only their names. A relink prompt appears on exactly the layers that need it.
+- **Local files** are stored by absolute path on desktop and played through `local-media://`. A relink prompt appears only on layers whose file is gone (or, in a browser, on every local layer after a reload).
+- **Stacking** is `zIndex`; the Stage hit-tests from the top, skipping hidden and locked layers. Old saves are migrated on load.
 - **Tailwind only scans `src/` and `index.html`** (`source(none)` and two `@source` lines at the top of `src/app.css`). Do not remove
   them: with automatic detection the docs and old builds leak class names into the stylesheet.
 
 ## Verification log
 
-- `npm run check`: 0 errors, 0 warnings.
-- Headless Chromium (Playwright) against the production build (the engine-level length suite on the dev server; the smoke,
-  transport, session and length suites repeated on the single-file build), with generated clips of 6, 8 and 20 s at 24 and 30 fps:
-  smoke and sync; transport (frame steps, link and unlink, offset capture); session HUD, menus, theater and shortcuts; every page,
-  including wallpaper upload and link; a 390 px phone layout; menus and flows (preset apply, Presets to new session, Quit and Reopen);
-  a sandbox simulation (blocked storage, throwing file picker, rejecting clipboard, refused fullscreen); unequal lengths through the
-  engine (54 checks) and through the real screens (13 checks). All passing, no console errors.
-- Home title screen, in headless Chromium against the dev server (2026-11-10): 36 behaviour checks (every menu action, Continue
-  after a session and Quit then Reopen, arrow-key focus, the Pro plan block, reduced motion, the paint rate at rest and while moving,
-  the loop stopping once Home is left, dropping two videos), a 10-check touch pass on a phone, and layout checks at 13 sizes from
-  568×320 to 1920×1080 in the Free, Pro and long-display-name states. No overflow, off-screen blocks, overlaps or console messages.
-- The final single-file build was opened in the artifact viewer: Home renders, the demo starts, both layers show with the 1.5 s offset.
-  The viewer logs two harmless notices (autoplay and screen wake lock are not allowed in the frame).
-- A fresh clone of the GitHub repository installs from the lockfile (`npm ci`, Node 22.22) and builds the same files as the verified
-  build: `dist/` is identical and the single-file `index.html` has the same SHA-256 (`4c155573…c190`).
-- **Not verified:** a real Stripe checkout or webhook, a real cloud backend, File System Access handle persistence across restarts,
-  the clipboard and fullscreen inside a sandboxed viewer, Safari and Firefox, real touch hardware, screen readers, and the CI
-  workflow on GitHub's own runners (its commands pass locally).
+- 2026-11-19, the desktop conversion: `npm run check` 0 errors and 0 warnings; `npm test` 80 tests; `npm run build`; the Linux packages built
+  with electron-builder. The app was run in Electron under Xvfb and driven with Playwright (see "How it was checked" in
+  `docs/ARCHITECTURE.md`): Range requests, canvas tainting, native clipboard, fullscreen, z-order shortcuts and menu, lock click-through,
+  restart persistence, automatic reopen of a saved local path, the missing-file prompt, and the packaged (asar) build.
+- **Not verified:** Windows and macOS builds on real machines, VA-API on a real Wayland GPU session, a real file-manager drag and drop,
+  the CI workflow on GitHub's own runners, Safari and Firefox (the browser fallback is for development), screen readers.
+- Earlier history (the browser version, Home's title screen) was verified in headless Chromium; those notes are in the git history.
 
 ## Open questions and known gaps
 
-- **Home navigation.** The dock has no Home item and the wordmark is not a link. From Load session and Presets the only way back to
-  Home is Quit then Reopen; from Settings there is also the "See Home" button on Appearance; the player has its own Home button.
-  Left as is: it is a design decision (there is a comment on it in the UI inventory doc).
+- **Home navigation.** The dock has a Home item. Quit closes the app, so it is no longer the way back to Home.
 - The Layers panel on a phone leaves the canvas about 94 px wide; it wants a bottom sheet.
 - The phone dock shows icons without visible labels, and the phone transport drops frame steps, speed and volume.
 - "Try the demo" in the New session dialog shows no loading state while the clips decode (the Home menu's Demo item does).
 - The ember trail was measured in Chromium only. Firefox, Safari, a low-power phone and a very large 4K display are untested; if
   it is heavy anywhere, lower `SUBDIVIDE` or the mote count in `seedMotes` (both in `utils/embers.ts`), or turn it off with `stop()`.
-- No HLS or DASH, no real payment verification, no real cloud backend (both have adapters ready: `billing.ts`, `cloud.ts`).
+- No HLS or DASH.
+- In the alignment studio, onion skin and wipe act on the source layer, which may no longer be the top one.
+- Hardware acceleration in Preferences only controls GPU compositing hints; the decoder is Chromium's (VA-API on Linux).
 - `npm audit` reports two low-severity advisories (prototype poisoning in `deepmerge`, pulled in by `@sveltejs/vite-plugin-svelte`).
   It is a build-time dependency that never reaches the bundle, and no fix was available on 2026-11-07. Check again whenever
   dependencies are updated.
@@ -141,12 +127,10 @@ used). It is the only place that breaks the rules above, and it is kept to `comp
 
 - Pages that sit beside the dock wrap their content in `<PageShell>` (Home and the player do not); the title is
   `<h1 class="title-wide text-[28px] md:text-[34px]">`.
-- Free users: `settings.limits.maxCustomPresets` is 3 and `advancedSampler` is false. Gate with `<ProBadge />` and a button to
-  `router.go({ name: 'settings', tab: 'subscription' })`.
 - Never blur. Never shadow except on floating surfaces. No all caps, no eyebrows, no "·"-joined meta strings (use icons and separate
   spans). Home's title screen is the one exception to the shadow and capitals rules (see above); it still never blurs.
 - Write long files in small pieces (outline first, then sections); one long response once hit the output limit.
-- The code lives in the private GitHub repository `Sadaragavan/ReactionPlayer`, branch `main`. Make small commits and run the
+- The code lives in `Sadaragavan/ReactionPlayer-Copy`, branch `main`. Make small commits and run the
   checklist in `CLAUDE.md` first; user-visible changes get a line under `[Unreleased]` in `CHANGELOG.md`.
-- CI (`.github/workflows/ci.yml`) runs `npm ci`, `npm run check`, `npm run build` and `npm run build:single` on every push and pull
-  request, and keeps the single-file build as a downloadable artifact for 14 days.
+- CI (`.github/workflows/build-desktop.yml`) runs `npm ci`, `npm run check` and `npm test`, then builds installers on Linux, Windows and
+  macOS and uploads them as artifacts; a `v*` tag attaches them to a release.

@@ -2,11 +2,11 @@
  * `use:dropzone` — accept dropped files.
  *
  * While a file hovers over the node it gets `data-dragging="true"` (style it
- * with `data-[dragging=true]:…`). In Chromium the dropped item's
- * FileSystemFileHandle is captured too, so local videos can be restored on the
- * next visit without asking again.
+ * with `data-[dragging=true]:…`). On desktop the dropped file's absolute path is
+ * captured (`webUtils.getPathForFile`), so the session can reopen it after a
+ * restart. In a Chromium browser the FileSystemFileHandle is captured instead.
  */
-import type { FsFileHandle, PickedFile } from '../engine/media';
+import { pickedFromFile, type FsFileHandle, type PickedFile } from '../engine/media';
 
 export interface DropOptions {
   accept: 'video' | 'image' | 'any';
@@ -66,7 +66,7 @@ export function dropzone(node: HTMLElement, options: DropOptions) {
         } catch {
           /* not supported or denied: the file itself is enough */
         }
-        return { file, handle: h };
+        return pickedFromFile(file, h);
       })
     ).then((list) => {
       const files = list.filter((x): x is PickedFile => x !== null);

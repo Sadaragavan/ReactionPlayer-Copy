@@ -1,17 +1,15 @@
 <script lang="ts">
   /**
    * App shell: boots the stores, hosts the current route and the global layers
-   * (toasts, context menu, dialogs). A web page cannot close itself, so “Quit”
-   * parks the app on a dark screen instead (see ui.dormant).
+   * (toasts, context menu, dialogs). “Quit” closes the native window (see engine/appActions.ts).
    */
   import { onMount } from 'svelte';
-  import { Power } from '@lucide/svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { session } from '$lib/stores/session.svelte';
+  import { flushSettings, initPersistence } from '$lib/stores/persistence';
   import { presets } from '$lib/stores/presets.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
   import ContextMenu from '$lib/components/ui/ContextMenu.svelte';
   import ShortcutsDialog from '$lib/components/ui/ShortcutsDialog.svelte';
   import Toasts from '$lib/components/ui/Toasts.svelte';
@@ -25,9 +23,15 @@
   let booted = $state(false);
 
   onMount(() => {
-    void Promise.all([settings.init(), session.init(), presets.init()]).then(() => (booted = true));
-    // Persist the place in the video whenever the tab is hidden or closed.
-    const flush = () => void session.save();
+    // The settings file has to be read before any store looks at a stored value.
+    void initPersistence()
+      .then(() => Promise.all([settings.init(), session.init(), presets.init()]))
+      .then(() => (booted = true));
+    // Persist the place in the video whenever the window is hidden or closed.
+    const flush = () => {
+      void session.save();
+      void flushSettings();
+    };
     const onVis = () => document.visibilityState === 'hidden' && flush();
     window.addEventListener('pagehide', flush);
     document.addEventListener('visibilitychange', onVis);
@@ -70,13 +74,3 @@
 <ShortcutsDialog />
 <ContextMenu />
 <Toasts />
-
-{#if ui.dormant}
-  <div class="fade-in fixed inset-0 z-[500] grid place-items-center bg-black">
-    <div class="flex flex-col items-center gap-5 text-center">
-      <Power size={28} strokeWidth={1.5} class="text-fg-3" />
-      <p class="text-fg-2">Session closed. Your place is saved.</p>
-      <Button variant="primary" onclick={() => (ui.dormant = false)}>Reopen</Button>
-    </div>
-  </div>
-{/if}

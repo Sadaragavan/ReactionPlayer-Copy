@@ -1,26 +1,40 @@
 {
   "name": "reaction-player",
+  "productName": "Reaction Player",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Frame-accurate multi-video reaction player: a black canvas with draggable video layers, source always on top.",
+  "description": "Frame-accurate multi-video reaction player: a black canvas with draggable video layers, free layer ordering, and permanent local video paths.",
+  "author": "Reaction Player <reaction-player@users.noreply.github.com>",
+  "homepage": "https://github.com/Sadaragavan/ReactionPlayer",
+  "license": "UNLICENSED",
+  "main": "./out/main/index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:single": "vite build --mode single",
-    "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "dev": "electron-vite dev",
+    "dev:web": "vite",
+    "build": "electron-vite build",
+    "build:web": "vite build",
+    "preview": "electron-vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.web.json --fail-on-warnings && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:linux": "npm run build && electron-builder --linux --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.20.5",
+    "electron": "^45.3.4",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.7",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^8.3.4",
-    "vite-plugin-singlefile": "^2.3.4"
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "@lucide/svelte": "^1.59.0"

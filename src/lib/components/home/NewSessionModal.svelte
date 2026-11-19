@@ -1,14 +1,15 @@
 <script lang="ts">
   /**
    * New Session stepper.
-   *   1 · Videos   a source, a reaction and (Pro) two extra angles: drop, browse or paste a link
+   *   1 · Videos   a source, a reaction and two optional extra angles: drop, browse or paste a link
    *   2 · Layout   split / grid / corner or a preset, canvas shape, linked or free timelines
    * Opened from the dock, or by dropping files on Home (`ui.newSessionFiles` pre-fills the slots).
    */
   import { untrack } from 'svelte';
   import { ArrowLeft, ArrowRight, Sparkles } from '@lucide/svelte';
   import { demoSessionInput, warmDemoClips } from '$lib/engine/demo';
-  import { pickVideoFiles, type PickedFile } from '$lib/engine/media';
+  import { MAX_VIDEOS } from '$lib/constants';
+  import { pickVideoFiles, pickedUrl, releasePickedUrl, type PickedFile } from '$lib/engine/media';
   import { probeVideo } from '$lib/engine/probe';
   import { defaultSessionName, roleForIndex, ROLE_LABEL, type NewVideoInput } from '$lib/engine/sessionFactory';
   import { router } from '$lib/stores/router.svelte';
@@ -32,11 +33,10 @@
   let linked = $state(true);
   let name = $state('');
 
-  const maxVideos = $derived(settings.limits.maxVideos);
+  const maxVideos = MAX_VIDEOS;
   const filled = $derived(slots.filter((s): s is SlotData => s !== null));
   const good = (s: SlotData | null) => !!s && !s.busy && !s.error;
   const ready = $derived(good(slots[0]) && good(slots[1]) && filled.every((s) => !s.busy && !s.error));
-  const oversize = $derived(filled.some((s) => Math.min(s.width ?? 0, s.height ?? 0) > settings.limits.maxResolution));
 
   // Every time the dialog opens it starts clean, then takes any files dropped on Home.
   $effect(() => {
@@ -70,11 +70,11 @@
   }
 
   async function setFile(i: number, p: PickedFile) {
-    const blobUrl = URL.createObjectURL(p.file);
+    const src = pickedUrl(p);
     try {
-      await load(i, { title: titleFromFileName(p.file.name), kind: 'file', url: '', file: p.file, handle: p.handle, fileName: p.file.name, fileSize: p.file.size }, blobUrl);
+      await load(i, { title: titleFromFileName(p.name), kind: 'file', url: '', file: p.file, path: p.path, handle: p.handle, fileName: p.name, fileSize: p.size }, src);
     } finally {
-      URL.revokeObjectURL(blobUrl);
+      releasePickedUrl(p, src);
     }
   }
 
@@ -98,17 +98,13 @@
 
   const close = () => (ui.newSessionOpen = false);
 
-  function upgrade() {
-    close();
-    router.go({ name: 'settings', tab: 'subscription' });
-  }
-
   function start() {
     const videos: NewVideoInput[] = filled.map((s) => ({
       title: s.title,
       kind: s.kind,
       url: s.kind === 'url' ? s.url : '',
       file: s.file,
+      path: s.path,
       handle: s.handle,
       fileName: s.fileName,
       fileSize: s.fileSize,
@@ -153,20 +149,13 @@
             label={i > 1 ? `${ROLE_LABEL.extra} ${i - 1}` : ROLE_LABEL[roleForIndex(i)]}
             hint={HINTS[i]}
             {slot}
-            locked={i >= maxVideos}
             onchoose={() => choose(i)}
             onfiles={(files) => files[0] && setFile(i, files[0])}
             onurl={(u) => setUrl(i, u)}
             onclear={() => (slots[i] = null)}
-            onupgrade={upgrade}
           />
         {/each}
       </div>
-      {#if oversize}
-        <p class="mt-3 text-[12.5px] text-fg-3">
-          Free plays up to {settings.limits.maxResolution}p smoothly. Pro opens 4K.
-        </p>
-      {/if}
     {:else}
       <LayoutStep
         count={filled.length}

@@ -1,0 +1,68 @@
+appId: io.github.sadaragavan.reactionplayer
+productName: Reaction Player
+copyright: Reaction Player
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asar: true
+compression: normal
+artifactName: reaction-player-${version}-${os}-${arch}.${ext}
+
+linux:
+  icon: icon.png
+  category: AudioVideo
+  maintainer: Reaction Player <reaction-player@users.noreply.github.com>
+  synopsis: Frame-accurate multi-video reaction player
+  target:
+    - target: pacman
+      arch: x64
+    - target: AppImage
+      arch: x64
+    - target: tar.gz
+      arch: x64
+  desktop:
+    entry:
+      Name: Reaction Player
+      Comment: Frame-accurate multi-video reaction player
+      Categories: AudioVideo;Video;Player;
+      MimeType: video/mp4;video/x-matroska;video/webm;video/quicktime;
+      StartupWMClass: Reaction Player
+      Keywords: reaction;video;player;sync;
+appImage:
+  artifactName: reaction-player-${version}-linux-${arch}.AppImage
+pacman:
+  artifactName: reaction-player-${version}-linux-${arch}.pacman
+  depends:
+    - gtk3
+    - nss
+    - alsa-lib
+
+win:
+  icon: icon.png
+  target:
+    - target: nsis
+      arch: x64
+    - target: portable
+      arch: x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: reaction-player-${version}-win-${arch}-setup.exe
+portable:
+  artifactName: reaction-player-${version}-win-${arch}-portable.exe
+
+mac:
+  icon: icon.png
+  category: public.app-category.video
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  # No Apple Developer certificate is configured, so the builds are unsigned.
+  identity: null
+dmg:
+  artifactName: reaction-player-${version}-mac-${arch}.dmg

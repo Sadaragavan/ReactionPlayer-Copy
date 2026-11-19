@@ -357,6 +357,8 @@ class PlaybackEngine {
         const t = s.alignment.coordinates[v.id];
         return {
           role: v.role,
+          zIndex: t.zIndex,
+          hidden: t.hidden,
           rect: { x: t.x, y: t.y, w: t.w, h: t.h },
           crop: t.crop,
           fit: t.fit,

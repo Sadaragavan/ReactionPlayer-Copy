@@ -1,38 +1,30 @@
 <script lang="ts">
   /**
-   * One video on the black canvas.
+   * One video on the black canvas, drawn only: the Stage handles the pointer.
    *
-   * The outer box is the *gesture host*: it moves when dragged and carries the
-   * eight resize grips. The inner box clips the picture (`overflow: hidden`),
-   * which is what makes a crop pixel-true, and it alone takes the layer's
-   * opacity so the grips stay solid.
-   *
-   * Locked layouts install no gesture at all (see `enabled`), and a plain click
-   * on a locked layer plays or pauses — like clicking any video player.
+   * The outer box carries the eight resize grips of the selected layer (they are
+   * the one part that takes the pointer). The inner box clips the picture
+   * (`overflow: hidden`), which is what makes a crop pixel-true, and it alone takes
+   * the layer's opacity so the grips stay solid. A hidden layer keeps playing, in
+   * sync, at zero opacity: the video stays composited, so its frames keep coming.
    */
-  import { FilePlus2, Film, Layers, TriangleAlert, UserRound, Volume2 } from '@lucide/svelte';
-  import { layerGesture } from '$lib/actions/layerGesture';
-  import { normAspectOf } from '$lib/engine/aspect';
+  import { FilePlus2, Film, Layers, Lock, TriangleAlert, UserRound, Volume2 } from '@lucide/svelte';
   import { playableUrl } from '$lib/engine/demo';
   import { pickVideoFiles } from '$lib/engine/media';
   import { playback } from '$lib/engine/playback.svelte';
+  import { desktop } from '$lib/platform';
   import { session } from '$lib/stores/session.svelte';
   import { settings } from '$lib/stores/settings.svelte';
-  import { ui } from '$lib/stores/ui.svelte';
-  import type { ID, IconComponent, Rect, SessionVideo, VideoRole } from '$lib/types';
-  import { HANDLES, type SnapGuide, rectToStyle, videoPlacement } from '$lib/utils/geometry';
-  import { videoMenu } from './menus';
+  import type { ID, IconComponent, SessionVideo, VideoRole } from '$lib/types';
+  import { HANDLES, rectToStyle, videoPlacement } from '$lib/utils/geometry';
 
   interface Props {
     video: SessionVideo;
-    /** Stacking order; the source always gets the highest value. */
+    /** The CSS stacking value for this layer: its rank in the stack, spaced out so overlays can sit between layers. */
     z: number;
-    /** The element whose box defines the 0–1 coordinate space. */
-    stage: () => HTMLElement | null | undefined;
-    onguides: (guides: SnapGuide[]) => void;
   }
 
-  let { video, z, stage, onguides }: Props = $props();
+  let { video, z }: Props = $props();
 
   const ROLE_ICON: Record<VideoRole, IconComponent> = { source: Film, reaction: UserRound, extra: Layers };
 
@@ -63,48 +55,9 @@
     return t ? videoPlacement({ w: bw, h: bh }, d?.w ?? 0, d?.h ?? 0, t.crop, t.fit) : null;
   });
 
-  const others = (): Rect[] =>
-    (session.current?.videos ?? [])
-      .filter((v) => v.id !== video.id)
-      .map((v) => session.current!.alignment.coordinates[v.id])
-      .filter(Boolean)
-      .map(({ x, y, w, h }) => ({ x, y, w, h }));
-
-  /** A drag ends in a `click`; this tells the click it was not a click. */
-  let moved = false;
-  /**
-   * Where a press began. On a locked layer no gesture runs, but the browser still
-   * ends a press-and-drag in a `click`; a press that travelled is a failed drag,
-   * not a request to play or pause.
-   */
-  let pressed: { x: number; y: number } | null = null;
-  const CLICK_TRAVEL_PX = 5;
-
-  function togglePlay() {
-    if (session.current?.isLinked) playback.toggle();
-    else playback.toggleVideo(video.id);
-  }
-
-  function onclick(e: MouseEvent) {
-    const travelled = locked && pressed !== null && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) > CLICK_TRAVEL_PX;
-    pressed = null;
-    if (moved || travelled) {
-      moved = false;
-      return;
-    }
-    if (locked) togglePlay();
-    else session.select(video.id);
-  }
-
-  function oncontextmenu(e: MouseEvent) {
-    e.preventDefault();
-    if (!locked) session.select(video.id);
-    ui.openMenu(e.clientX, e.clientY, videoMenu(video.id));
-  }
-
   async function chooseFile() {
     const [picked] = await pickVideoFiles(false);
-    if (picked) session.relink(video.id, picked.file, picked.handle);
+    if (picked) session.relink(video.id, picked);
   }
 
   /** Registers the element with the sync engine for as long as the layer exists. */
@@ -112,9 +65,12 @@
     return { destroy: playback.attach(id, el) };
   }
 
-  /** Remote clips are first requested with CORS (so frames can be captured); if the host refuses, play without it. */
+  /**
+   * Remote clips, and local files served by `local-media://` on desktop, are first requested with CORS so a frame can be
+   * read back without tainting the canvas; if the host refuses, play without it.
+   */
   let corsRefused = $state(false);
-  const cors = $derived(video.kind === 'url' && !corsRefused);
+  const cors = $derived((video.kind === 'url' || !!desktop) && !corsRefused);
   function onerror(e: Event) {
     if (!cors) return;
     corsRefused = true;
@@ -124,35 +80,14 @@
 </script>
 
 {#if t}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div
-    class="layer absolute"
+    class="layer pointer-events-none absolute"
+    data-layer={video.id}
     data-role={video.role}
     data-selected={selected}
-    data-movable={!locked}
     style="{rectToStyle(t)};z-index:{z}"
-    use:layerGesture={{
-      stage,
-      rect: () => ({ x: t.x, y: t.y, w: t.w, h: t.h }),
-      others,
-      aspect: () => normAspectOf(video.id),
-      enabled: () => !session.isLocked,
-      onChange: (r) => {
-        moved = true;
-        session.setLayer(video.id, r);
-      },
-      onGuides: onguides,
-      onStart: () => {
-        moved = false;
-        session.select(video.id);
-      }
-    }}
-    onpointerdown={(e) => (pressed = { x: e.clientX, y: e.clientY })}
-    {onclick}
-    ondblclick={() => !locked && togglePlay()}
-    {oncontextmenu}
   >
-    <div class="absolute inset-0 overflow-hidden bg-black" style="opacity:{t.opacity}" bind:clientWidth={bw} bind:clientHeight={bh}>
+    <div class="absolute inset-0 overflow-hidden bg-black" style="opacity:{t.hidden ? 0 : t.opacity}" bind:clientWidth={bw} bind:clientHeight={bh}>
       <!-- svelte-ignore a11y_media_has_caption -->
       <video
         use:attach={video.id}
@@ -169,7 +104,7 @@
 
       {#if needsFile}
         <div class="absolute inset-0 grid place-items-center bg-black p-3 text-center">
-          <button class="flex max-w-full flex-col items-center gap-2 text-fg-2 transition-colors hover:text-fg" onclick={(e) => (e.stopPropagation(), chooseFile())} onpointerdown={(e) => e.stopPropagation()}>
+          <button class="pointer-events-auto flex max-w-full flex-col items-center gap-2 text-fg-2 transition-colors hover:text-fg" onclick={(e) => (e.stopPropagation(), chooseFile())} onpointerdown={(e) => e.stopPropagation()}>
             <FilePlus2 size={22} strokeWidth={1.6} class="text-accent" />
             <span class="max-w-full truncate text-[12.5px]">Choose “{video.fileName ?? video.title}”</span>
           </button>
@@ -187,10 +122,13 @@
 
     <!-- Outline + role badge: drawn above the clip so nothing crops them; only visible while the HUD is. -->
     <div class="frame pointer-events-none absolute inset-0"></div>
-    <div class="badge pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 bg-black px-1.5 py-1 text-fg-2">
-      <Icon size={12} strokeWidth={2} class={video.role === 'source' ? 'text-accent' : ''} />
-      {#if isMaster}<Volume2 size={12} strokeWidth={2} />{/if}
-    </div>
+    {#if !t.hidden}
+      <div class="badge pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 bg-black px-1.5 py-1 text-fg-2">
+        <Icon size={12} strokeWidth={2} class={video.role === 'source' ? 'text-accent' : ''} />
+        {#if isMaster}<Volume2 size={12} strokeWidth={2} />{/if}
+        {#if t.locked}<Lock size={12} strokeWidth={2} />{/if}
+      </div>
+    {/if}
 
     {#if selected}
       {#each HANDLES as h (h)}
@@ -201,12 +139,6 @@
 {/if}
 
 <style>
-  .layer {
-    touch-action: none;
-  }
-  .layer[data-movable='true'] {
-    cursor: move;
-  }
   /* Preferences → Hardware acceleration: ask the browser to composite this picture on the GPU. */
   .gpu {
     will-change: transform;
@@ -243,6 +175,7 @@
 
   /* Eight grips: 10 px squares with a generous invisible hit area. */
   .grip {
+    pointer-events: auto;
     position: absolute;
     width: 10px;
     height: 10px;

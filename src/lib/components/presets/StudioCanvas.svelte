@@ -1,11 +1,11 @@
 <script lang="ts">
   /**
    * The calibration canvas: black, a fixed shape, every slot's sampled still on it.
-   * Layers paint in the same order as the player (source last, so on top). In wipe
+   * Layers paint in the same order as the player (lowest zIndex first). In wipe
    * mode a yellow line cuts through the source; drag it, or focus it and use the
    * arrow keys, to check that edges and horizons run on across the line.
    */
-  import { paintOrder } from '$lib/engine/layouts';
+  import { sortByZ } from '$lib/engine/zorder';
   import { clamp, type SnapGuide } from '$lib/utils/geometry';
   import StudioLayer from './StudioLayer.svelte';
   import type { Studio } from './studio.svelte';
@@ -15,7 +15,7 @@
   let canvas = $state<HTMLElement>();
   let guides = $state<SnapGuide[]>([]);
 
-  const ordered = $derived(paintOrder(studio.slots.map((s, i) => ({ role: s.role, i }))));
+  const ordered = $derived(sortByZ(studio.slots.map((s, i) => ({ i, zIndex: s.t.zIndex }))));
   const vertical = $derived(studio.wipeAxis === 'x');
 
   /** Drags the wipe line: pointer position along its axis, as a 0–1 fraction of the canvas. */

@@ -2,26 +2,28 @@
   /**
    * The layers panel: a hairline-edged column docked to the right edge.
    *
-   * Every layer is listed source-first (the source is always the top layer and
-   * cannot be reordered below a reaction). Selecting a row opens its numeric
+   * Layers are listed top first. Each row can be dragged, or moved with its up and
+   * down arrows, to change the stacking, and carries a visibility and a lock toggle
+   * (a locked layer ignores the pointer, so clicks reach the layers below it).
+   * Selecting a row opens its numeric
    * editor: position and size in 0.1 % micro-steps, per-edge crop, opacity, fit
    * and aspect lock. While the viewports are locked the editor is replaced by a
    * single unlock button, so nothing can shift by accident.
    * The foot of the panel applies a layout or a saved preset, or saves the current one as a preset.
    */
-  import { AudioLines, Eye, EyeOff, Film, Layers, Lock, LockOpen, RotateCcw, Save, UserRound, X } from '@lucide/svelte';
+  import { AudioLines, ChevronDown, ChevronUp, Eye, EyeOff, Film, GripVertical, Layers, Lock, LockOpen, RotateCcw, Save, UserRound, X } from '@lucide/svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import IconButton from '$lib/components/ui/IconButton.svelte';
   import LayoutPreview from '$lib/components/ui/LayoutPreview.svelte';
   import NumberField from '$lib/components/ui/NumberField.svelte';
-  import ProBadge from '$lib/components/ui/ProBadge.svelte';
   import Segmented from '$lib/components/ui/Segmented.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
   import { ASPECT_OPTIONS, MIN_LAYER_SIZE } from '$lib/constants';
   import { setAspect, normAspectOf } from '$lib/engine/aspect';
-  import { buildLayout, coordinatesToSlots, paintOrder } from '$lib/engine/layouts';
+  import { buildLayout, coordinatesToSlots } from '$lib/engine/layouts';
   import { playback } from '$lib/engine/playback.svelte';
   import { ROLE_LABEL } from '$lib/engine/sessionFactory';
+  import { moveInTopFirst, videosByZ } from '$lib/engine/zorder';
   import { presets } from '$lib/stores/presets.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
@@ -67,7 +69,7 @@
     ui.toast(`Applied “${p.name}”. The viewports are locked.`, 'success');
   }
   // Top layer first: the reverse of paint order.
-  const rows = $derived(s ? [...paintOrder(s.videos)].reverse() : []);
+  const rows = $derived(s ? videosByZ(s.videos, s.alignment.coordinates).reverse() : []);
   const sel = $derived(!locked && session.selectedId && s ? s.videos.find((v) => v.id === session.selectedId) : undefined);
   const t = $derived(sel && s ? s.alignment.coordinates[sel.id] : undefined);
 
@@ -112,26 +114,20 @@
     session.setLayer(sel.id, { crop: { ...t.crop, [edge]: next } });
   }
 
-  /** Fully transparent layers are hidden; the eye brings the previous opacity back (or 100 %). */
-  const lastOpacity = new Map<ID, number>();
-  function toggleVisible(id: ID) {
-    const cur = s?.alignment.coordinates[id];
-    if (!cur) return;
-    if (cur.opacity > 0) {
-      lastOpacity.set(id, cur.opacity);
-      session.setLayer(id, { opacity: 0 });
-    } else session.setLayer(id, { opacity: lastOpacity.get(id) ?? 1 });
+  /** Drag and drop: the row being dragged, and the row it is over. */
+  let dragId = $state<ID | null>(null);
+  let overId = $state<ID | null>(null);
+
+  function drop(target: ID) {
+    const from = dragId;
+    dragId = overId = null;
+    if (!from || from === target || locked) return;
+    const ids = rows.map((v) => v.id);
+    session.setStackOrder(moveInTopFirst(ids, from, ids.indexOf(target)));
   }
 
   async function saveAsPreset() {
     if (!s) return;
-    if (!presets.canAddCustom) {
-      ui.toast('Free plan: 3 custom presets. Pro makes them unlimited.', 'info', {
-        label: 'See Pro',
-        run: () => router.go({ name: 'settings', tab: 'subscription' })
-      });
-      return;
-    }
     const saved = await presets.save({
       name: `${s.name} layout`.slice(0, 48),
       layoutType: s.alignment.layoutType,
@@ -139,10 +135,8 @@
       canvasAspect: s.canvasAspect === 'fill' ? undefined : s.canvasAspect,
       thumbnail: playback.thumbnail(320) ?? undefined
     });
-    if (saved) {
-      s.presetId = saved.id;
-      ui.toast('Layout saved as a preset.', 'success', { label: 'Open presets', run: () => router.go('presets') });
-    }
+    s.presetId = saved.id;
+    ui.toast('Layout saved as a preset.', 'success', { label: 'Open presets', run: () => router.go('presets') });
   }
 </script>
 
@@ -168,12 +162,30 @@
     {/if}
 
     <ul class="py-1">
-      {#each rows as v (v.id)}
+      {#each rows as v, k (v.id)}
         {@const lt = s?.alignment.coordinates[v.id]}
         {@const Icon = ROLE_ICON[v.role]}
         {@const on = sel?.id === v.id}
-        <li class={on ? 'bg-hover' : ''}>
-          <div class="group relative flex h-11 items-center pr-1 pl-2">
+        <li
+          class="{on ? 'bg-hover' : ''} {overId === v.id && dragId !== v.id ? 'border-t-2 border-accent' : ''}"
+          draggable={!locked}
+          ondragstart={(e) => {
+            dragId = v.id;
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+          }}
+          ondragover={(e) => {
+            if (!dragId) return;
+            e.preventDefault();
+            overId = v.id;
+          }}
+          ondragend={() => (dragId = overId = null)}
+          ondrop={(e) => {
+            e.preventDefault();
+            drop(v.id);
+          }}
+        >
+          <div class="group relative flex h-11 items-center pr-1 pl-1">
+            <GripVertical size={14} class="shrink-0 {locked ? 'text-fg-3/30' : 'cursor-grab text-fg-3'}" aria-hidden="true" />
             {#if on}<span class="absolute inset-y-1.5 left-0 w-0.5 {v.role === 'source' ? 'bg-accent' : 'bg-fg'}"></span>{/if}
             <button
               class="flex h-full min-w-0 flex-1 items-center gap-2.5 px-2 text-left disabled:cursor-default"
@@ -184,7 +196,7 @@
               <Icon size={15} strokeWidth={1.9} class="shrink-0 {v.role === 'source' ? 'text-accent' : 'text-fg-2'}" />
               <span class="min-w-0">
                 <span class="block truncate text-[13px] {on ? 'text-fg' : 'text-fg-2 group-hover:text-fg'}">{v.title}</span>
-                <span class="block text-[11px] leading-none text-fg-3">{ROLE_LABEL[v.role]}{v.role === 'source' ? ' · always on top' : ''}</span>
+                <span class="block text-[11px] leading-none text-fg-3">{ROLE_LABEL[v.role]}{lt?.locked ? ' · locked' : ''}{lt?.hidden ? ' · hidden' : ''}</span>
               </span>
             </button>
             <IconButton
@@ -195,12 +207,22 @@
               active={s?.masterId === v.id}
               onclick={() => playback.setMaster(v.id)}
             />
+            <IconButton size="sm" icon={ChevronUp} label="Bring forward" kbd="]" side="left" disabled={!session.canReorderLayer(v.id, 'forward')} onclick={() => session.reorderLayer(v.id, 'forward')} />
+            <IconButton size="sm" icon={ChevronDown} label="Send backward" kbd="[" side="left" disabled={!session.canReorderLayer(v.id, 'backward')} onclick={() => session.reorderLayer(v.id, 'backward')} />
             <IconButton
               size="sm"
-              icon={lt && lt.opacity === 0 ? EyeOff : Eye}
-              label={lt && lt.opacity === 0 ? 'Show layer' : 'Hide layer'}
+              icon={lt?.locked ? Lock : LockOpen}
+              label={lt?.locked ? 'Unlock layer' : 'Lock layer'}
               side="left"
-              onclick={() => toggleVisible(v.id)}
+              active={!!lt?.locked}
+              onclick={() => session.setLayer(v.id, { locked: !lt?.locked })}
+            />
+            <IconButton
+              size="sm"
+              icon={lt?.hidden ? EyeOff : Eye}
+              label={lt?.hidden ? 'Show layer' : 'Hide layer'}
+              side="left"
+              onclick={() => session.setLayer(v.id, { hidden: !lt?.hidden })}
             />
           </div>
 
@@ -290,10 +312,7 @@
         {/if}
       </select>
     </label>
-    <Button size="sm" variant="secondary" icon={Save} class="mt-3 w-full" onclick={saveAsPreset}>
-      Save as preset
-      {#if !presets.canAddCustom}<ProBadge class="ml-1" />{/if}
-    </Button>
+    <Button size="sm" variant="secondary" icon={Save} class="mt-3 w-full" onclick={saveAsPreset}>Save as preset</Button>
   </footer>
 </aside>
 

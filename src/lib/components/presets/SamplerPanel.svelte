@@ -13,13 +13,10 @@
   import { FALLBACK_FPS } from '$lib/constants';
   import { DEMO_REACTION, DEMO_SOURCE, playableUrl, warmDemoClips } from '$lib/engine/demo';
   import { pickVideoFiles } from '$lib/engine/media';
-  import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
-  import { settings } from '$lib/stores/settings.svelte';
   import { formatTime } from '$lib/utils/format';
   import Button from '../ui/Button.svelte';
   import IconButton from '../ui/IconButton.svelte';
-  import ProBadge from '../ui/ProBadge.svelte';
   import Slider from '../ui/Slider.svelte';
   import type { Studio } from './studio.svelte';
 
@@ -33,7 +30,7 @@
 
   async function choose() {
     const [picked] = await pickVideoFiles(false);
-    if (picked) await studio.loadFile(i, picked.file);
+    if (picked) await studio.loadFile(i, picked);
   }
 
   async function useDemo() {
@@ -75,7 +72,7 @@
       aria-label="Sampling preview"
       tabindex="0"
       class="relative aspect-video overflow-hidden border border-line bg-black"
-      use:dropzone={{ accept: 'video', onfiles: (files) => void studio.loadFile(i, files[0].file) }}
+      use:dropzone={{ accept: 'video', onfiles: (files) => void studio.loadFile(i, files[0]) }}
       {onkeydown}
     >
       {#if el}
@@ -122,16 +119,8 @@
     <div class="border-t border-line pt-3">
       <div class="mb-2 flex items-center justify-between">
         <span class="text-[12.5px] text-fg-2">Earlier frames</span>
-        {#if !settings.limits.advancedSampler}
-          <span class="flex items-center gap-2">
-            <ProBadge />
-            <Button size="sm" variant="ghost" onclick={() => router.go({ name: 'settings', tab: 'subscription' })}>See Pro</Button>
-          </span>
-        {/if}
       </div>
-      {#if !settings.limits.advancedSampler}
-        <p class="text-[12.5px] text-fg-3">Pro keeps the last eight captures per video, so you can compare moments side by side.</p>
-      {:else if slot.history.length === 0}
+      {#if slot.history.length === 0}
         <p class="text-[12.5px] text-fg-3">Each new capture sends the one before it here.</p>
       {:else}
         <div class="flex gap-2 overflow-x-auto pb-1">

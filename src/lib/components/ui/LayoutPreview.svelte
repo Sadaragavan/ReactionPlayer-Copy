@@ -1,10 +1,10 @@
 <script lang="ts">
   /**
-   * A schematic of a layout: black canvas, the source outlined in yellow on top,
-   * reactions in white. Used wherever a layout needs a quick visual: the New
+   * A schematic of a layout: black canvas, the source outlined in yellow,
+   * reactions in white, stacked by each slot's zIndex. Used wherever a layout needs a quick visual: the New
    * Session stepper, preset cards, the session browser's fallback thumbnail.
    */
-  import { paintOrder } from '$lib/engine/layouts';
+  import { sortByZ } from '$lib/engine/zorder';
   import type { LayerTransform, VideoRole } from '$lib/types';
   import { rectToStyle } from '$lib/utils/geometry';
 
@@ -16,7 +16,7 @@
   let { slots, ratio = 16 / 9, class: cls = '' }: Props = $props();
 
   const roleFor = (i: number): VideoRole => (i === 0 ? 'source' : i === 1 ? 'reaction' : 'extra');
-  const layers = $derived(paintOrder(slots.map((s, i) => ({ s, role: roleFor(i), i }))));
+  const layers = $derived(sortByZ(slots.map((s, i) => ({ s, role: roleFor(i), i, zIndex: s.zIndex ?? 0 }))));
 </script>
 
 <div class="relative w-full overflow-hidden border border-line bg-black {cls}" style="aspect-ratio:{ratio}">

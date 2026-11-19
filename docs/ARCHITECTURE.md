@@ -4,19 +4,19 @@ How Reaction Player is put together, and why. Read `README.md` first for what it
 
 ## In one paragraph
 
-A single-page Svelte 5 app with no backend. A **session** (two to four videos, their offsets, and where each one sits
+An Electron app: a small main process (`electron/`) owns the window, the files and the `local-media://` protocol, and a single-page
+Svelte 5 renderer (`src/`) does everything else. There is no backend. A **session** (two to four videos, their offsets, and where each one sits
 on a black canvas) is the one piece of state that matters. **Stores** own state, the **engine** turns a session into
-synchronised playback, **components** draw it, and a small **persistence** layer keeps it across visits. Payment and
-cloud sync sit behind two narrow interfaces so a real server can be added without touching the UI.
+synchronised playback, **components** draw it, and a small **persistence** layer keeps it across visits. The renderer reaches the system only through the typed `window.electronAPI` bridge.
 
 ```text
 pages ──► components ──► stores (Svelte 5 runes) ◄──► engine (clock, sync, capture, layout maths)
                               │                              │
                               ▼                              ▼
                         persistence                    <video> elements
-                  (LocalStorage + IndexedDB)       (one per session video)
+                  (files in the data folder)       (one per session video)
 
-billing.ts ◄── Subscription tab          cloud.ts ◄── session store (push) / Subscription tab (pull)
+window.electronAPI (preload) ◄── IPC ──► electron/main.ts: files, dialogs, clipboard, fullscreen, local-media://
 ```
 
 ## Decisions that shape the code
@@ -25,8 +25,8 @@ billing.ts ◄── Subscription tab          cloud.ts ◄── session store 
   Components read them directly and re-render on change; nothing is passed through context or prop chains.
 - **Coordinates are fractions of the canvas** (`0..1`). A layout means the same thing at any window size, and a fixed
   canvas aspect (16:9, 9:16, 4:3, 1:1, 21:9) keeps an alignment pixel-exact. `fill` follows the window instead.
-- **The source is always on top.** `paintOrder()` is the only place that decides stacking, and both the live stage and
-  the capture code use it.
+- **Stacking is explicit.** Every `LayerTransform` has a `zIndex`. `engine/zorder.ts` sorts (`sortByZ`), hit-tests (`hitTest`) and reorders
+  (`reorder`); the live stage, the capture code, the layer panel and the studio all use it. `engine/migrate.ts` gives old saves a `zIndex`.
 - **One placement maths.** `utils/geometry.ts` (`videoPlacement`, `moveRect`, `resizeRect`, `snapMove`) and
   `engine/capture.ts` (`drawLayer`) are shared by the player, the alignment studio and the thumbnails, so what you
   align is what you get.
@@ -34,7 +34,7 @@ billing.ts ◄── Subscription tab          cloud.ts ◄── session store 
   HTML file.
 - **No blur, no shadow except on floating surfaces.** True `#000`, hairline borders, one yellow accent for live state.
   Tokens are in `src/app.css` under `@theme`. The root font size is 14 px, so Tailwind spacing scales with it.
-- **Everything is gated through `settings.limits` / `settings.isPro`**, never by comparing plan strings.
+- **No tiers.** Every feature is on. The only limit is four videos.
 - **Untrusted input is validated.** A session file loaded from disk goes through `engine/importConfig.ts`: every field is
   checked or clamped, ids are regenerated, and the layout comes back locked.
 
@@ -42,12 +42,12 @@ billing.ts ◄── Subscription tab          cloud.ts ◄── session store 
 
 | Type | What it is |
 | --- | --- |
-| `Session` | `id`, `name`, `videos[]`, `alignment`, `canvasAspect`, `isLinked`, `isTheaterMode`, `masterId`, `clock`, `thumbnail`, timestamps (`lastModified` for the browser, `updatedAt` as the sync revision, `syncedAt`). |
-| `SessionVideo` | `role` (`source`, `reaction`, `extra`), `kind` (`file` or `url`), `url`, `fileName`, `duration`, `currentTime`, `volume`, `muted`, `playbackRate`, `offsetMs`, `audioTrack`. |
+| `Session` | `id`, `name`, `videos[]`, `alignment`, `canvasAspect`, `isLinked`, `isTheaterMode`, `masterId`, `clock`, `thumbnail`, timestamps (`lastModified`, `updatedAt`). |
+| `SessionVideo` | `role` (`source`, `reaction`, `extra`), `kind` (`file` or `url`), `url`, `filePath` (a local file's absolute path), `fileName`, `duration`, `currentTime`, `volume`, `muted`, `playbackRate`, `offsetMs`, `audioTrack`. |
 | `Alignment` | `layoutType`, `locked`, `coordinates` (a `LayerTransform` per video id), `base` (the slots as last applied, so "Reset viewport alignment" knows where home is). |
-| `LayerTransform` | A rect `x y w h` in canvas fractions, plus `crop {t r b l}`, `opacity`, `fit` (`contain` or `cover`) and `aspect` lock. |
+| `LayerTransform` | A rect `x y w h` in canvas fractions, plus `zIndex` (higher is on top), `hidden`, `locked`, plus `crop {t r b l}`, `opacity`, `fit` (`contain` or `cover`) and `aspect` lock. |
 | `Preset` | Slot-based, so it applies to any set of videos: slot 0 source, 1 reaction, 2 and 3 extras. Custom presets remember the canvas aspect they were aligned on. |
-| `AppSettings`, `PlaybackPrefs`, `Profile` | Preferences, the plan (`userTier`, `billing`), and the local profile. |
+| `AppSettings`, `PlaybackPrefs` | Preferences. |
 
 Invariants: `masterId` is always one of `videos[].id`; the master's `offsetMs` is 0; a non-master video plays at
 `local = master + offsetMs / 1000`.
@@ -57,10 +57,18 @@ Invariants: `masterId` is always one of `videos[].id`; the master's `offsetMs` i
 ### Stage and layers (`components/player`)
 
 `Stage` draws the black canvas inside the space the HUD leaves free (`inset`), keeping the session's aspect ratio, and
-renders one `Layer` per video in `paintOrder`. `Layer` positions itself with `rectToStyle`, shows the picture under
-`fit` and `crop`, and wires pointer gestures from `actions/layerGesture.ts`: move, eight resize handles, edge and centre
-snapping (`SNAP_DISTANCE`), a minimum size (`MIN_LAYER_SIZE`) and the aspect lock. The same gesture action drives the
-alignment studio. Snap guides are drawn as one-pixel yellow lines. A locked alignment ignores gestures.
+renders one `Layer` per video, bottom to top by `zIndex` (`videosByZ`). A `Layer` is only drawn: it positions itself with
+`rectToStyle`, shows the picture under `fit` and `crop`, and ignores the pointer (its resize grips are the one exception).
+
+The **Stage owns the pointer**. A press is turned into canvas fractions and tested with `hitTest` from the highest `zIndex` to the
+lowest, skipping hidden and locked layers. The layer it finds is selected, played or paused (when the alignment is locked), given
+the right-click menu, or dragged with `beginGesture` from `actions/layerGesture.ts`: move, eight resize handles, edge and centre
+snapping (`SNAP_DISTANCE`), a minimum size (`MIN_LAYER_SIZE`) and the aspect lock. The studio binds the same gesture to its own
+layers with `use:layerGesture`. Snap guides are drawn as one-pixel yellow lines. A locked alignment ignores drags. A hidden layer is
+drawn at zero opacity rather than removed, so its video keeps presenting frames and stays in sync.
+
+Stacking changes go through `session.reorderLayer(id, op)` (`front`, `forward`, `backward`, `back`) and `session.setStackOrder`
+(drag and drop); both re-number the stack 0…n-1. The menu, the `[` `]` shortcuts and the Layers panel all call them.
 
 ### Sync engine (`engine/playback.svelte.ts`, `timeline.ts`, `track.ts`)
 
@@ -104,9 +112,8 @@ New session with the files). Inside it, bottom to top: the wallpaper (an `<img>`
 never blurred) or a faint warm light on black; an edge shade for legibility; `TitleMenu`; and `EmberTrail`.
 
 `TitleMenu` is a CSS grid: the wordmark and profile button on top, the menu bottom-left (a large lead item, a row of items, a row
-of small links) and the plan block bottom-right. The lead is "Continue", with the last session's name and age, when
-`session.lastSession` exists, and "New session" otherwise. The plan block is built from `settings.limits` (and `TIER_LIMITS.pro`
-for the line about Pro), so it says what the code enforces. `engine/appActions.ts` holds `continueLast` and `quitApp`, which the
+of small links) and the version bottom-right. The lead is "Continue", with the last session's name and age, when
+`session.lastSession` exists, and "New session" otherwise. `engine/appActions.ts` holds `continueLast` and `quitApp`, which the
 Dock shares. Arrow keys walk the buttons in reading order, only while focus is already inside the menu so dialogs keep their keys.
 
 `use:streak` (`actions/streak.ts`) gives every item its hover line. It writes the pointer's x inside the element to `--sx` and sets
@@ -123,22 +130,38 @@ the tab is hidden, and stays off under `prefers-reduced-motion`. Touch only burs
 
 | Store | Owns |
 | --- | --- |
-| `session` | The open session (`current`), snapshots of all saved ones (`saved`), layer and video mutations, create/open/duplicate/remove/rename, export, import, `syncAll`. Every mutation schedules a debounced save. |
-| `settings` | `AppSettings`, the profile, the wallpaper, and the derived `limits`, `isPro`, `playback`. |
-| `presets` | Built-in standard presets plus the user's, capped by `limits.maxCustomPresets`. |
+| `session` | The open session (`current`), snapshots of all saved ones (`saved`), layer and video mutations, stacking, create/open/duplicate/remove/rename, export, import. Every mutation schedules a debounced save. |
+| `settings` | `AppSettings`, the wallpaper, and `playback`. |
+| `presets` | Built-in standard presets plus the user's. |
 | `router` | The hash route, `go()` and `hrefFor()`. |
-| `ui` | Toasts, the context menu, the New Session and shortcuts dialogs, the dormant "Quit" screen. |
+| `ui` | Toasts, the context menu, the New Session and shortcuts dialogs. |
 
-`stores/persistence.ts` splits storage by size and shape. **LocalStorage** holds small synchronous values (settings,
-profile, last session id). **IndexedDB** (`reaction-player`) holds `sessions`, `presets`, `handles` (File System Access
-handles), `kv` (the wallpaper, which can be megabytes) and `cloud` (the demo mirror). Every call is wrapped, so a blocked
-or full store degrades to "not saved". `App.svelte` boots `settings`, `session` and `presets` together, then renders the
-route; it flushes the session on `pagehide` and when the tab is hidden.
+`stores/persistence.ts` has one API and two backends. On **desktop** every call goes over IPC to `electron/storage.ts`, which keeps
+`settings.json` (a flat key → value object; the settings store and the last session id), `presets.json`, `sessions/<id>.json`, the
+thumbnails (cut out of the JSON into `thumbnails/`) and the wallpaper (`wallpapers/`) in the data folder (`app.getPath('userData')`).
+Writes are atomic (temp file, then rename), queued per file, and awaited before the app quits; an unreadable file is renamed
+`*.corrupt-<time>`, never deleted. In a **browser** the same calls use LocalStorage and IndexedDB. `App.svelte` awaits
+`initPersistence()` (it loads `settings.json`), then boots `settings`, `session` and `presets` together and renders the route; it
+flushes the session and the settings on `pagehide`. Anything read back from storage goes through `engine/migrate.ts`.
 
-Local video files cannot be persisted, so `engine/media.ts` keeps a registry of blob URLs. A session stores only the file
-name. On resume the registry tries the saved file handle (Chromium); otherwise the player shows **Choose file** on
-exactly the layers that need it. The sample clips use a `demo:source` / `demo:reaction` scheme (`engine/demo.ts`), so saved
-demo sessions survive a rebuild that changes the hashed asset names.
+Local videos on desktop are stored as `SessionVideo.filePath`. `engine/media.ts` turns a path into `local-media://media/<path>`
+(`src/shared/mediaUrl.ts`); `electron/media.ts` serves it from disk with `Range` support (`electron/range.ts`) and only for video
+and picture extensions. On open, `restoreSessionMedia` checks that each path still exists; those that do not show **Choose file**.
+In a browser the registry keeps blob URLs and File System Access handles instead. The sample clips use a `demo:source` /
+`demo:reaction` scheme (`engine/demo.ts`), so saved demo sessions survive a rebuild that changes the hashed asset names.
+
+## The desktop shell (`electron/`)
+
+- `main.ts` sets the Chromium switches before `ready` (on Linux: `ozone-platform-hint=auto`, VA-API decode features, Wayland window
+  decorations; everywhere: `ignore-gpu-blocklist`, GPU rasterization, zero-copy), registers the privileged `local-media` scheme, and
+  opens one black, dark-themed window with `contextIsolation`, `sandbox` and no Node integration. The window never navigates
+  away; external links open in the system browser. Permission requests are denied.
+- IPC handlers check that the sender is our window showing our page (`trusted`) and validate their arguments.
+- `onHeadersReceived` rewrites the CORS headers (`Access-Control-Allow-Origin: *`, `Cross-Origin-Resource-Policy: cross-origin`) of
+  media responses, so remote videos do not taint the canvas.
+- Fullscreen is the native window; Copy frame writes a PNG with Electron's clipboard; session export and import use the native
+  save and open dialogs. Quit closes the app after queued writes finish.
+- `preload.ts` is the only bridge. It is built as CommonJS (a sandboxed preload cannot be an ES module).
 
 ## Presets and the alignment studio (`components/presets`)
 
@@ -146,47 +169,33 @@ Presets are slots, so they apply to any session; `coordinatesToSlots` and `slots
 session's per-video layout and a preset. Applying a custom preset also restores the canvas aspect it was aligned on.
 The studio (`studio.svelte.ts`, with `sampling.ts` for loading clips and grabbing frames) lets you pick a frame from each
 video, then place the layers over each other in one of three views: normal, onion skin (the source turns see-through) or
-a wipe line. Views change what is drawn, never what is saved. Free keeps captures one at a time; Pro also keeps the last
-eight per video. Saving writes a preset with a composed thumbnail.
-
-## Server seams
-
-- **`billing.ts`.** `BillingAdapter` (`startCheckout`, `portalUrl`, `live`). `StripeLinkAdapter` is used when
-  `VITE_STRIPE_LINK_MONTHLY` or `VITE_STRIPE_LINK_YEARLY` is set; otherwise `DemoAdapter` flips the plan on this device.
-  A browser cannot prove a payment, so production needs a webhook that grants the entitlement and a replacement for the
-  `settings.setTier('pro')` call in `SubscriptionTab.svelte`.
-- **`cloud.ts`.** `CloudSyncAdapter` (`push`, `pull`, `isAvailable`). The default `LocalMirrorAdapter` copies sessions
-  into the `cloud` IndexedDB store. The session store pushes after saves when `limits.cloudSync` is true; "Sync now"
-  pushes and pulls. Conflicts compare `updatedAt`.
+a wipe line. Views change what is drawn, never what is saved. Each video keeps its last eight captures. Saving writes a preset with a composed thumbnail.
 
 ## Build and delivery
 
-`vite.config.ts` uses `base: './'` and a `$lib` alias. `npm run build` writes `dist/`. `npm run build:single` adds
-`vite-plugin-singlefile`, which inlines JS, CSS, the fonts and the sample clips into one `dist/index.html` (about 1 MB);
-it also writes into `dist/`, so copy the file out before rebuilding. The hosted live preview is that file wrapped as an
-artifact page (title, a dark `color-scheme`, a black ground, then the inlined CSS and module script).
+`electron.vite.config.ts` builds three targets with electron-vite: main (ESM, `out/main`), preload (CommonJS, `out/preload`) and the
+Svelte renderer (`out/renderer`, `base: './'` so it loads from `file://`). `vite.config.ts` is the plain browser dev server and build
+(`npm run dev:web`). `electron-builder.yml` packages `out/` into `release/`; the GitHub workflow runs the checks, then builds on
+Linux, Windows and macOS.
 
 Tailwind's automatic class detection is switched off in `src/app.css` (`source(none)`) and pinned to `src/` and `index.html`
-with `@source`. Left on, it also reads `docs/`, the README and any old build in `dist/`, which feeds stale class names back
+with `@source`. Left on, it also reads `docs/`, the README and old builds, which feeds stale class names back
 into the stylesheet and makes a fresh build differ from the one that was tested. Markup added outside `src/` needs its own
 `@source` line.
 
 ## How it was checked
 
-- `npm run check` (svelte-check) is clean: 0 errors, 0 warnings.
-- Nine Playwright suites in headless Chromium, run against the production build (the engine-level length suite needs the dev
-  server; the smoke, transport, session and length suites were repeated on the single-file build), and the final build was
-  opened once in the artifact viewer:
-  smoke and sync; transport (frame stepping, link and unlink, offset capture: a 264 ms nudge while unlinked became
-  +1764 ms when relinked); session HUD, menus, theater and shortcuts; every page including wallpaper upload and link;
-  a 390 px phone layout; menus and flows (preset apply, Presets to new session, Quit and Reopen); a sandbox simulation
-  (blocked storage, a throwing file picker, a rejecting clipboard, refused fullscreen); unequal lengths through the engine
-  (54 checks) and through the real screens (13 checks).
-- The Home title screen was added later and checked on the dev server (menu actions, keyboard, Pro, reduced motion, paint
-  rates, touch, and layout at 13 sizes); the details are in the verification log in `docs/PROGRESS.md`.
-- Not verifiable here: a real Stripe checkout or webhook, a real cloud backend, File System Access handle persistence
-  across restarts (it needs a real permission prompt), the clipboard and fullscreen inside a sandboxed viewer, Safari and
-  Firefox, real touch hardware (touch was emulated), and screen readers.
+- `npm run check` is clean (0 errors, 0 warnings) and `npm test` passes: z-order sorting, reordering and hit-testing, migration of
+  saves without `zIndex`, union timeline maths, `Range` parsing, the `local-media://` handler against real files, atomic storage and
+  session import.
+- The built app was run in Electron (under Xvfb) and driven with Playwright: `window.electronAPI` is present and Node is not; a `Range`
+  request to `local-media://` answers `206`; a non-media file is refused; a `crossorigin` video from `local-media://` draws to a canvas without
+  tainting it; the native clipboard write and fullscreen work; the z-order shortcuts, the context menu and locking behave; a session
+  and its stacking survive a restart; a saved local path reopens by itself and a missing one shows **Choose file**.
+- The Linux packages (`.pacman`, `.AppImage`, `.tar.gz`) were built, and the unpacked app started and served `local-media://`.
+- **Not verified here:** Windows and macOS builds (the workflow builds them), VA-API decoding on real Wayland hardware (the test
+  machine had no GPU), the clipboard on a real Wayland session, and dragging a file from a file manager (the drop handler uses
+  `webUtils.getPathForFile`, which needs a real drop).
 
 ## Extending it
 
@@ -195,20 +204,17 @@ into the stylesheet and makes a fresh build differ from the one that was tested.
 - **A setting.** Add the field to `PlaybackPrefs` or `AppSettings`, a default in `DEFAULT_SETTINGS`, and a `SettingRow` in the
   matching tab. Old saved settings are merged over the defaults, so no migration is needed.
 - **A shortcut.** Add it to the `switch` in `Session.svelte` and to `SHORTCUTS` in `constants.ts` so the dialog lists it.
-- **A paid feature.** Add a field to `TierLimits`, set it in `TIER_LIMITS`, read it through `settings.limits`, and show a
-  `ProBadge` where it is locked. The plan table in the Subscription tab should say the same thing the code enforces.
-- **Real billing or sync.** Implement `BillingAdapter` or `CloudSyncAdapter` and assign it to `billing.adapter` or
-  `cloud.adapter` before the app mounts.
+- **A system call.** Add the method to `ElectronAPI` in `src/shared/api.ts`, implement it in `electron/preload.ts` (one `invoke`), handle it in
+  `electron/main.ts` with `handle()` (sender check, argument validation), and give the caller a fallback for the browser.
 
 ## Known gaps
 
 Recorded from the UI review; none block use.
 
 - The Layers panel on a phone leaves the canvas about 94 px wide; it wants a bottom sheet.
-- The dock has no Home item and the wordmark is not a link. From Load session and Presets the only way back to Home is Quit
-  then Reopen; from Settings there is also the "See Home" button on Appearance; the player has its own Home button.
 - The phone dock shows icons without visible labels, and touch screens have no tooltips.
 - "Try the demo" in the New session dialog shows no loading state while the clips decode (the Home menu's Demo item does).
 - The ember trail on Home was measured in Chromium only.
 - The phone transport drops frame steps, speed and volume; speed is still in the right-click menu.
-- No HLS or DASH, and no real payment verification or cloud backend.
+- No HLS or DASH.
+- In the alignment studio, onion skin and wipe act on the source layer, which may no longer be the top one now that layers can be reordered.

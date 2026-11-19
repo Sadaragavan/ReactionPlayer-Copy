@@ -7,6 +7,8 @@
     kind: 'file' | 'url';
     url: string;
     file?: File;
+    /** Absolute path on disk (desktop). */
+    path?: string;
     handle?: PickedFile['handle'];
     fileName?: string;
     fileSize?: number;
@@ -25,28 +27,24 @@
    * the video that fills it. A video arrives by drop, by the file picker, or as a
    * pasted link; once it is probed the row shows its still, length and size.
    */
-  import { Clapperboard, FolderOpen, Link2, Loader, Lock, X } from '@lucide/svelte';
+  import { Clapperboard, FolderOpen, Link2, Loader, X } from '@lucide/svelte';
   import { dropzone } from '$lib/actions/dropzone';
   import type { VideoRole } from '$lib/types';
   import { formatBytes, formatTime } from '$lib/utils/format';
   import IconButton from '../ui/IconButton.svelte';
-  import ProBadge from '../ui/ProBadge.svelte';
 
   interface Props {
     role: VideoRole;
     label: string;
     hint: string;
     slot: SlotData | null;
-    /** Pro-only slot on a free plan. */
-    locked?: boolean;
     onchoose: () => void;
     onfiles: (files: PickedFile[]) => void;
     onurl: (url: string) => void;
     onclear: () => void;
-    onupgrade: () => void;
   }
 
-  let { role, label, hint, slot, locked = false, onchoose, onfiles, onurl, onclear, onupgrade }: Props = $props();
+  let { role, label, hint, slot, onchoose, onfiles, onurl, onclear }: Props = $props();
 
   let link = $state('');
   let editingLink = $state(false);
@@ -62,19 +60,6 @@
   const dot = $derived(role === 'source' ? 'bg-accent' : role === 'reaction' ? 'bg-fg' : 'bg-fg-3');
 </script>
 
-{#if locked}
-  <button
-    type="button"
-    class="flex w-full items-center gap-4 border border-dashed border-line p-3 text-left transition-colors hover:border-accent-line hover:bg-hover"
-    onclick={onupgrade}
-  >
-    <span class="grid h-[81px] w-36 shrink-0 place-items-center border border-line text-fg-3"><Lock size={18} /></span>
-    <span class="min-w-0">
-      <span class="flex items-center gap-2 text-[14px] font-medium">{label} <ProBadge /></span>
-      <span class="block text-[12.5px] text-fg-3">A third and fourth video need Pro.</span>
-    </span>
-  </button>
-{:else}
   <div
     use:dropzone={{ accept: 'video', onfiles }}
     class="flex items-stretch gap-4 border border-line p-3 transition-colors data-[dragging=true]:bg-accent-soft"
@@ -129,4 +114,4 @@
       {/if}
     </div>
   </div>
-{/if}
+

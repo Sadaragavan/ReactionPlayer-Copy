@@ -5,10 +5,9 @@
    * preview is the real composite captured by the player; sessions that were
    * never played show a schematic of their layout instead.
    */
-  import { Cloud, Copy, Download, Film, Pencil, Play, Trash2 } from '@lucide/svelte';
+  import { Copy, Download, Film, Pencil, Play, Trash2 } from '@lucide/svelte';
   import { tip } from '$lib/actions/tooltip';
   import { canvasRatio } from '$lib/engine/capture';
-  import { settings } from '$lib/stores/settings.svelte';
   import type { Session } from '$lib/types';
   import { formatTime, plural, timeAgo } from '$lib/utils/format';
   import Button from '../ui/Button.svelte';
@@ -30,7 +29,6 @@
   const progress = $derived(sessionProgress(s));
   const ratio = $derived(canvasRatio(s.canvasAspect));
   const slots = $derived(s.videos.map((v) => s.alignment.coordinates[v.id]).filter(Boolean));
-  const synced = $derived(settings.limits.cloudSync && s.syncedAt);
 
   let editing = $state(false);
   let draft = $state('');
@@ -99,9 +97,6 @@
         />
       {:else}
         <h3 class="min-w-0 flex-1 truncate text-[15px] font-semibold" title={s.name}>{s.name}</h3>
-        {#if synced}
-          <span use:tip={{ text: `Synced ${timeAgo(s.syncedAt!)}`, side: 'top' }} class="text-fg-3"><Cloud size={14} strokeWidth={1.8} /></span>
-        {/if}
       {/if}
     </div>
 

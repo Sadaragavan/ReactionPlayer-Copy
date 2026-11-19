@@ -1,13 +1,12 @@
 <script lang="ts">
   /**
    * Home's title screen: the app's main menu, set over the wallpaper (or the black). A large "Continue" with the session
-   * it reopens, the other destinations in a row beneath, small links under that, and the plan with its perks in the
+   * it reopens, the other destinations in a row beneath, small links under that, and the version in the
    * bottom-right corner. Hovering or focusing an item draws a line from its left edge to the pointer with a bright
    * head on the end (actions/streak.ts). The menu is the only place Cinzel and glow are used; see PROGRESS.md.
    */
   import { streak } from '$lib/actions/streak';
   import Logo from '$lib/components/shell/Logo.svelte';
-  import { TIER_LIMITS } from '$lib/constants';
   import { continueLast, quitApp } from '$lib/engine/appActions';
   import { demoSessionInput, warmDemoClips } from '$lib/engine/demo';
   import { router } from '$lib/stores/router.svelte';
@@ -17,20 +16,6 @@
   import { timeAgo } from '$lib/utils/format';
 
   const last = $derived(session.lastSession);
-  const pro = $derived(settings.isPro);
-  const limits = $derived(settings.limits);
-  const name = $derived(settings.profile.displayName || 'Guest');
-
-  const resolution = (n: number) => (n >= 2160 ? '4K' : `${n}p`);
-  /** Straight from TIER_LIMITS, like the plan table in Settings, so this can never promise more than the code enforces. */
-  const capacity = $derived([
-    `${limits.maxVideos} videos`,
-    `Up to ${resolution(limits.maxResolution)}`,
-    Number.isFinite(limits.maxCustomPresets) ? `${limits.maxCustomPresets} custom presets` : 'Unlimited presets'
-  ]);
-  const features = $derived([...(limits.cloudSync ? ['Cloud sync'] : []), ...(limits.advancedSampler ? ['Advanced sampler'] : [])]);
-  const upgrade = `Pro adds ${TIER_LIMITS.pro.maxVideos} videos, ${resolution(TIER_LIMITS.pro.maxResolution)}, cloud sync and unlimited presets.`;
-
   let root: HTMLElement;
   let demoBusy = $state(false);
 
@@ -63,15 +48,6 @@
 
 <svelte:window onkeydown={arrows} />
 
-<!-- One line of plan facts, joined by small dots that are drawn, not typed, so a screen reader hears the items only. -->
-{#snippet row(items: string[])}
-  <p class="perks">
-    {#each items as item, i (item)}
-      {#if i}<i class="dot" aria-hidden="true"></i>{/if}<span>{item}</span>
-    {/each}
-  </p>
-{/snippet}
-
 <div class="title" bind:this={root}>
   <header class="top">
     <div class="brand">
@@ -80,14 +56,6 @@
       <p class="hint">Drop a source and a reaction video anywhere to begin.</p>
     </div>
 
-    <button class="streaky who" use:streak onclick={() => router.go({ name: 'settings', tab: 'profile' })} aria-label="Profile and plan">
-      <span class="avatar">
-        {#if settings.profile.avatar}
-          <img src={settings.profile.avatar} alt="" />
-        {:else}{name.slice(0, 1).toUpperCase()}{/if}
-      </span>
-      <span class="who-name">{name}</span>
-    </button>
   </header>
 
   <nav class="menu" aria-label="Main">
@@ -110,7 +78,7 @@
       {#if last}
         <li><button class="streaky item" use:streak onclick={() => (ui.newSessionOpen = true)}>New session</button></li>
       {/if}
-      <!-- Short words so the row fits beside the plan block; the full names are in the accessible labels. -->
+      <!-- Short words so the row stays compact; the full names are in the accessible labels. -->
       <li><button class="streaky item" use:streak onclick={() => router.go('sessions')} aria-label="Load session">Load</button></li>
       <li><button class="streaky item" use:streak onclick={() => router.go('presets')}>Presets</button></li>
       <li><button class="streaky item" use:streak onclick={demo} aria-busy={demoBusy} aria-label="Try the demo">{demoBusy ? 'Loading' : 'Demo'}</button></li>
@@ -118,22 +86,12 @@
     </ul>
 
     <ul class="links">
-      <li><button class="streaky link" use:streak onclick={() => router.go({ name: 'settings', tab: 'profile' })}>Profile</button></li>
-      <li><button class="streaky link" data-glow={!pro} use:streak onclick={() => router.go({ name: 'settings', tab: 'subscription' })}>Subscription</button></li>
       <li><button class="streaky link" use:streak onclick={() => (ui.shortcutsOpen = true)}>Shortcuts</button></li>
     </ul>
   </nav>
 
   <div class="side">
-    <aside class="plan" aria-label="Your plan">
-      <p class="plan-head">
-        <i class="live" class:pro aria-hidden="true"></i>
-        <span class="tier" class:pro>{pro ? 'Pro' : 'Free plan'}</span>
-      </p>
-      <p class="perks-label">{pro ? 'Active perks' : 'Included'}</p>
-      {@render row(capacity)}
-      {#if features.length}{@render row(features)}{/if}
-      <p class="note">{pro ? 'Thank you for your support!' : upgrade}</p>
+    <aside class="plan" aria-label="Version">
       <p class="version">v{__APP_VERSION__}</p>
     </aside>
     <button class="streaky link quit" use:streak onclick={quitApp}>Quit</button>
@@ -182,38 +140,6 @@
     letter-spacing: 0.16em;
     color: var(--paper-3);
   }
-  .who {
-    display: flex;
-    align-items: center;
-    gap: 0.8em;
-    padding: 0.5em 0.1em 0.7em;
-    font-size: clamp(11px, 0.95vw, 18px);
-    letter-spacing: 0.16em;
-    --rest: var(--paper-2);
-  }
-  .avatar {
-    display: grid;
-    place-items: center;
-    width: 2.2em;
-    height: 2.2em;
-    overflow: hidden;
-    border: 1px solid rgb(255 255 255 / 0.28);
-    border-radius: 999px;
-    font-weight: 600;
-    letter-spacing: 0;
-  }
-  .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .who-name {
-    max-width: 16ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* ── menu ── */
   .menu {
     grid-column: 1;
@@ -248,17 +174,6 @@
   .links li {
     display: flex;
     align-items: center;
-  }
-  /* A small drawn dot between neighbours, the way the recording's footer links are separated. */
-  .links li + li::before {
-    content: '';
-    flex: none;
-    width: 3px;
-    height: 3px;
-    margin-inline: clamp(12px, 1.5vw, 30px);
-    border-radius: 50%;
-    background: var(--paper-3);
-    opacity: 0.7;
   }
 
   .meta {
@@ -405,12 +320,6 @@
     --rest: var(--paper-3);
     --lit: #ffeed0;
   }
-  /* The call to action among the links (Subscription on Free) carries a standing glow. */
-  .link[data-glow='true'] {
-    --rest: #f4dab5;
-    text-shadow: 0 0 0.9em rgb(255 150 50 / 0.7);
-  }
-
   /* ── bottom-right ── */
   .side {
     grid-column: 2;
@@ -435,41 +344,6 @@
   .plan p {
     margin: 0;
   }
-  .plan-head {
-    display: flex;
-    align-items: center;
-    gap: 0.7em;
-  }
-  .live {
-    width: 0.55em;
-    height: 0.55em;
-    border-radius: 50%;
-    background: var(--paper-3);
-  }
-  .live.pro {
-    background: var(--ember);
-    box-shadow: 0 0 8px rgb(255 170 60 / 0.8);
-  }
-  .tier {
-    color: var(--paper-2);
-    font-weight: 600;
-  }
-  .tier.pro {
-    color: var(--ember);
-  }
-  .perks {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5em;
-    white-space: nowrap;
-  }
-  .perks-label {
-    color: var(--paper-3);
-  }
-  .note {
-    color: var(--paper);
-  }
   .version {
     color: var(--paper-3);
     opacity: 0.8;
@@ -479,7 +353,7 @@
   }
 
   /* ── small screens ── */
-  /* Portrait screens (phones, tablets) are one column, with the plan under the menu. */
+  /* Portrait screens (phones, tablets) are one column, with the version under the menu. */
   @media (orientation: portrait) and (max-width: 900px) {
     .title {
       grid-template-columns: minmax(0, 1fr);
@@ -501,9 +375,6 @@
     .plan {
       align-items: flex-start;
     }
-    .perks {
-      justify-content: flex-start;
-    }
   }
   /* Tablets held upright have room to set everything larger than the vw-based desktop sizes give. */
   @media (orientation: portrait) and (min-width: 721px) and (max-width: 900px) {
@@ -520,12 +391,9 @@
       font-size: 12px;
     }
   }
-  /* Narrow windows keep only the tier and version in the corner, so the menu has the room. */
+  /* Narrow windows keep only the version in the corner, so the menu has the room. */
   @media (max-width: 720px) {
-    .hint,
-    .perks-label,
-    .perks,
-    .note {
+    .hint {
       display: none;
     }
     .lead-btn {
@@ -541,7 +409,6 @@
   }
   /* Fingers need bigger targets than a pointer does. */
   @media (pointer: coarse) {
-    .who,
     .lead-btn,
     .item,
     .link {
@@ -556,7 +423,6 @@
   }
   /* A phone on its side is short: trade a little of that height for room. */
   @media (pointer: coarse) and (max-height: 420px) {
-    .who,
     .item,
     .link {
       min-height: 38px;

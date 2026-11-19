@@ -12,7 +12,7 @@
 import { CANVAS_ASPECTS } from '../constants';
 import type { CanvasAspect, Crop, FitMode, Rect, VideoRole } from '../types';
 import { ZERO_CROP, videoPlacement } from '../utils/geometry';
-import { paintOrder } from './layouts';
+import { sortByZ } from './zorder';
 
 type FrameCallbackVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
 
@@ -109,6 +109,10 @@ export function drawLayer(
 
 export interface StageLayer {
   role: VideoRole;
+  /** Stacking: higher is painted on top. */
+  zIndex: number;
+  /** Hidden layers are left out of the picture. */
+  hidden?: boolean;
   rect: Rect;
   crop: Crop;
   fit: FitMode;
@@ -123,7 +127,7 @@ export function canvasRatio(aspect: CanvasAspect, fallback = 16 / 9): number {
   return CANVAS_ASPECTS.find((a) => a.value === aspect)?.ratio ?? fallback;
 }
 
-/** Black canvas with every layer painted bottom → top, so the source always ends up in front. */
+/** Black canvas with every visible layer painted bottom → top by its `zIndex`. */
 export function composeStage(layers: StageLayer[], ratio: number, width = 480): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -132,7 +136,8 @@ export function composeStage(layers: StageLayer[], ratio: number, width = 480): 
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  for (const l of paintOrder(layers)) {
+  for (const l of sortByZ(layers)) {
+    if (l.hidden) continue;
     const box: PixelBox = { x: l.rect.x * canvas.width, y: l.rect.y * canvas.height, w: l.rect.w * canvas.width, h: l.rect.h * canvas.height };
     if (l.image) {
       drawLayer(ctx, l.image, { width: l.width, height: l.height }, box, l.crop, l.fit, l.opacity);

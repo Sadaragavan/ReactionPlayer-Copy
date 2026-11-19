@@ -100,7 +100,7 @@
     <!-- The preview is a drop target too: drag a picture onto it. -->
     <div
       class="relative aspect-video w-full max-w-2xl overflow-hidden border border-line-strong bg-black"
-      use:dropzone={{ accept: 'image', onfiles: ([f]) => f && void useFile(f.file) }}
+      use:dropzone={{ accept: 'image', onfiles: ([f]) => f?.file && void useFile(f.file) }}
       aria-label="Wallpaper preview"
       role="img"
     >
@@ -143,11 +143,11 @@
     </form>
 
     <p class="mt-3 max-w-2xl text-[12.5px] text-fg-3">
-      PNG, JPG, WebP or GIF, up to {formatBytes(MAX_WALLPAPER_BYTES)}. A GIF animates. An uploaded picture stays on this device; a link loads from the web each time.
+      PNG, JPG, WebP or GIF, up to {formatBytes(MAX_WALLPAPER_BYTES)}. A GIF animates. An uploaded picture is copied into the app's data folder; a link loads from the web each time.
     </p>
     {#if error}<p class="mt-2 max-w-2xl text-[13px] text-danger" role="alert">{error}</p>{/if}
     {#if wallpaper && !settings.wallpaperPersisted}
-      <p class="mt-2 max-w-2xl text-[13px] text-fg-2" role="status">This browser would not store the wallpaper, so it lasts until the tab closes.</p>
+      <p class="mt-2 max-w-2xl text-[13px] text-fg-2" role="status">The wallpaper could not be saved, so it lasts until the app closes.</p>
     {/if}
   </div>
 

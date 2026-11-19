@@ -1,33 +1,19 @@
 /**
- * App settings and the signed-in profile.
+ * App settings.
  *
- * Small values live in LocalStorage; the wallpaper (a data URL that can be many
- * megabytes) lives in IndexedDB so it can never blow the LocalStorage quota.
- * `userTier` is the monetisation gate: every feature check in the app goes
- * through `limits` / `isPro` rather than comparing strings.
+ * Small values go through `persistence` (settings.json on desktop, LocalStorage in a browser); the wallpaper is a
+ * file of its own so a large picture can never bloat the settings.
  */
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, LS_PROFILE, LS_SETTINGS, TIER_LIMITS } from '../constants';
-import type { AppSettings, BillingPlan, PlaybackPrefs, Profile, Tier, TierLimits, Wallpaper } from '../types';
-import { idbDelete, idbGet, idbPut, lsGet, lsSet } from './persistence';
-
-const WALLPAPER_KEY = 'wallpaper';
+import { DEFAULT_SETTINGS, LS_SETTINGS } from '../constants';
+import type { AppSettings, PlaybackPrefs, Wallpaper } from '../types';
+import { loadWallpaper, lsGet, lsSet, removeWallpaper, saveWallpaper } from './persistence';
 
 class SettingsStore {
-  settings = $state<AppSettings>({ ...DEFAULT_SETTINGS, playback: { ...DEFAULT_SETTINGS.playback }, billing: { ...DEFAULT_SETTINGS.billing } });
-  profile = $state<Profile>({ ...DEFAULT_PROFILE });
+  settings = $state<AppSettings>({ ...DEFAULT_SETTINGS, playback: { ...DEFAULT_SETTINGS.playback } });
   ready = $state(false);
-  /** False when the wallpaper could not be written to IndexedDB (private window, quota). */
+  /** False when the wallpaper could not be kept (a full disk, a blocked browser store). */
   wallpaperPersisted = $state(true);
 
-  get tier(): Tier {
-    return this.settings.userTier;
-  }
-  get isPro(): boolean {
-    return this.settings.userTier === 'pro';
-  }
-  get limits(): TierLimits {
-    return TIER_LIMITS[this.settings.userTier];
-  }
   get playback(): PlaybackPrefs {
     return this.settings.playback;
   }
@@ -41,11 +27,9 @@ class SettingsStore {
       ...DEFAULT_SETTINGS,
       ...stored,
       wallpaper: null,
-      playback: { ...DEFAULT_SETTINGS.playback, ...(stored.playback ?? {}) },
-      billing: { ...DEFAULT_SETTINGS.billing, ...(stored.billing ?? {}) }
+      playback: { ...DEFAULT_SETTINGS.playback, ...(stored.playback ?? {}) }
     };
-    this.profile = { ...DEFAULT_PROFILE, ...lsGet<Partial<Profile>>(LS_PROFILE, {}) };
-    this.settings.wallpaper = (await idbGet<Wallpaper>('kv', WALLPAPER_KEY)) ?? null;
+    this.settings.wallpaper = await loadWallpaper();
     this.ready = true;
   }
 
@@ -56,20 +40,6 @@ class SettingsStore {
   patchPlayback(patch: Partial<PlaybackPrefs>): void {
     this.settings.playback = { ...this.settings.playback, ...patch };
     this.#persist();
-  }
-
-  setTier(tier: Tier): void {
-    this.settings.userTier = tier;
-    this.#persist();
-  }
-
-  setBilling(patch: Partial<AppSettings['billing']>): void {
-    this.settings.billing = { ...this.settings.billing, ...patch };
-    this.#persist();
-  }
-
-  setPlan(plan: BillingPlan): void {
-    this.setBilling({ plan });
   }
 
   /** Full clarity keeps the wallpaper untouched; off lays a plain (unblurred) dark veil over it. */
@@ -85,35 +55,21 @@ class SettingsStore {
   }
 
   async setWallpaper(wallpaper: Wallpaper | null): Promise<void> {
-    this.settings.wallpaper = wallpaper;
     if (!wallpaper) {
+      this.settings.wallpaper = null;
       this.wallpaperPersisted = true;
-      await idbDelete('kv', WALLPAPER_KEY);
+      await removeWallpaper();
       return;
     }
-    this.wallpaperPersisted = (await idbPut('kv', wallpaper, WALLPAPER_KEY)) !== undefined;
+    const kept = await saveWallpaper(wallpaper);
+    this.wallpaperPersisted = kept !== null;
+    this.settings.wallpaper = kept ?? wallpaper;
   }
 
-  updateProfile(patch: Partial<Profile>): void {
-    this.profile = { ...this.profile, ...patch };
-    lsSet(LS_PROFILE, this.profile);
-  }
-
-  /**
-   * Playback and layout preferences back to their defaults. The plan, the
-   * wallpaper (and its clarity), the billing choice, sessions and presets are
-   * the user's own and stay.
-   */
+  /** Playback and layout preferences back to their defaults. The wallpaper (and its clarity), sessions and presets stay. */
   resetSettings(): void {
-    const { userTier, wallpaper, wallpaperClear, billing } = this.settings;
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      userTier,
-      wallpaper,
-      wallpaperClear,
-      playback: { ...DEFAULT_SETTINGS.playback },
-      billing: { ...billing }
-    };
+    const { wallpaper, wallpaperClear } = this.settings;
+    this.settings = { ...DEFAULT_SETTINGS, wallpaper, wallpaperClear, playback: { ...DEFAULT_SETTINGS.playback } };
     this.#persist();
   }
 }

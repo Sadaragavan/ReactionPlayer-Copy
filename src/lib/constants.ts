@@ -1,19 +1,12 @@
-/** App-wide constants: tier limits, defaults, lookup tables. */
-import type { AppSettings, AspectLock, CanvasAspect, Profile, Tier, TierLimits } from './types';
+/** App-wide constants: limits, defaults, lookup tables. */
+import type { AppSettings, AspectLock, CanvasAspect } from './types';
 
 export const APP_NAME = 'Reaction Player';
 
-/* ── Monetisation ─────────────────────────────────────────── */
+/* ── Limits ───────────────────────────────────────────────── */
 
-export const TIER_LIMITS: Record<Tier, TierLimits> = {
-  free: { maxVideos: 2, maxCustomPresets: 3, cloudSync: false, advancedSampler: false, maxResolution: 1080 },
-  pro: { maxVideos: 4, maxCustomPresets: Number.POSITIVE_INFINITY, cloudSync: true, advancedSampler: true, maxResolution: 2160 }
-};
-
-export const PRICING = {
-  monthly: { label: 'Monthly', price: '$6', cadence: 'per month' },
-  yearly: { label: 'Yearly', price: '$48', cadence: 'per year', note: 'Two months free' }
-} as const;
+/** A session plays two to four videos at once. */
+export const MAX_VIDEOS = 4;
 
 /* ── Defaults ─────────────────────────────────────────────── */
 
@@ -21,7 +14,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wallpaper: null,
   wallpaperClear: true,
   defaultLayout: 'split',
-  userTier: 'free',
   playback: {
     // Measured on 24 fps clips: 20 ms keeps the follower on the same frame as the master far more often than 40 ms,
     // and a nudge of under 1 % in speed is inaudible; below 20 ms it only corrects more often without getting closer.
@@ -34,14 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     hudAutoHideMs: 2500,
     keepHudWhilePaused: false,
     loop: false
-  },
-  billing: { plan: 'yearly' }
-};
-
-export const DEFAULT_PROFILE: Profile = {
-  displayName: 'Guest',
-  email: '',
-  createdAt: 0
+  }
 };
 
 /* ── Playback ─────────────────────────────────────────────── */
@@ -102,7 +87,6 @@ export const MAX_WALLPAPER_BYTES = 12 * 1024 * 1024;
 /* ── Storage ──────────────────────────────────────────────── */
 
 export const LS_SETTINGS = 'reaction-player:settings';
-export const LS_PROFILE = 'reaction-player:profile';
 export const LS_LAST_SESSION = 'reaction-player:last-session';
 export const DB_NAME = 'reaction-player';
 export const DB_VERSION = 1;
@@ -120,6 +104,10 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: [',', '.'], label: 'Step one frame back or forward' },
   { keys: ['M'], label: 'Mute the master audio' },
   { keys: ['P'], label: 'Layers panel' },
+  { keys: [']'], label: 'Bring the selected layer forward' },
+  { keys: ['['], label: 'Send the selected layer backward' },
+  { keys: ['Shift', ']'], label: 'Bring the selected layer to the front' },
+  { keys: ['Shift', '['], label: 'Send the selected layer to the back' },
   { keys: ['Esc'], label: 'Close a menu or panel, leave theater mode' },
   { keys: ['?'], label: 'Show these shortcuts' }
 ];

@@ -59,7 +59,7 @@
     const thumb = playback.thumbnail();
     if (thumb) session.setThumbnail(thumb);
     if (await session.save()) ui.toast('Session saved.', 'success');
-    else ui.toast('Could not save. This browser is blocking storage for this page.', 'error');
+    else ui.toast('Could not save the session to disk.', 'error');
   }
 </script>
 

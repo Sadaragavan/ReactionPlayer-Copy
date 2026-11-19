@@ -7,11 +7,13 @@
  * Local videos come back without a file (`url: ''`); the player then offers a
  * “Choose file” prompt on exactly those layers.
  */
+import { isVideoPath } from '../../shared/mediaUrl';
 import { ASPECT_OPTIONS, CANVAS_ASPECTS, MIN_LAYER_SIZE } from '../constants';
 import type { AspectLock, CanvasAspect, Crop, FitMode, ID, LayerTransform, LayoutType, Session, SessionVideo } from '../types';
 import { uid } from '../utils/format';
 import { ZERO_CROP, clamp } from '../utils/geometry';
 import { buildLayout } from './layouts';
+import { withZIndex } from './zorder';
 import { defaultSessionName, roleForIndex } from './sessionFactory';
 
 type Loose = Record<string, unknown>;
@@ -45,12 +47,15 @@ function cleanTransform(raw: unknown, fallback: LayerTransform): LayerTransform 
   const w = num(t.w, fallback.w, MIN_LAYER_SIZE, 1);
   const h = num(t.h, fallback.h, MIN_LAYER_SIZE, 1);
   return {
+    zIndex: num(t.zIndex, fallback.zIndex, -1000, 1000),
+    hidden: t.hidden === true || t.opacity === 0 ? true : undefined,
+    locked: t.locked === true ? true : undefined,
     x: num(t.x, fallback.x, 0, 1 - w),
     y: num(t.y, fallback.y, 0, 1 - h),
     w,
     h,
     crop: raw === undefined ? { ...ZERO_CROP } : cleanCrop(t.crop),
-    opacity: num(t.opacity, 1, 0, 1),
+    opacity: t.opacity === 0 ? 1 : num(t.opacity, 1, 0, 1),
     fit: (t.fit === 'cover' ? 'cover' : 'contain') as FitMode,
     aspect: (typeof t.aspect === 'string' && ASPECTS.has(t.aspect) ? t.aspect : fallback.aspect) as AspectLock
   };
@@ -76,6 +81,7 @@ export function parseConfig(raw: unknown, now = Date.now()): Session | null {
       kind: remote ? 'url' : 'file',
       url: remote ? url : '',
       fileName: typeof v.fileName === 'string' ? v.fileName.slice(0, 260) : undefined,
+      filePath: !remote && typeof v.filePath === 'string' && v.filePath.length <= 1024 && isVideoPath(v.filePath) ? v.filePath : undefined,
       fileSize: typeof v.fileSize === 'number' && v.fileSize >= 0 ? v.fileSize : undefined,
       currentTime: num(v.currentTime, 0, 0),
       duration: num(v.duration, 0, 0),
@@ -91,9 +97,13 @@ export function parseConfig(raw: unknown, now = Date.now()): Session | null {
   const given = isObj(alignment.coordinates) ? alignment.coordinates : {};
   const defaults = buildLayout('split', videos.length);
   const coordinates: Record<ID, LayerTransform> = {};
+  // A file saved before layers could be ordered has no zIndex; `withZIndex` gives those the old source-on-top stacking.
+  const rawCoords: Record<ID, LayerTransform> = {};
   list.forEach((v, i) => {
-    coordinates[videos[i].id] = cleanTransform(given[str(v.id, `#${i}`)], defaults[i]);
+    const raw = given[str(v.id, `#${i}`)];
+    rawCoords[videos[i].id] = { ...cleanTransform(raw, defaults[i]), zIndex: isObj(raw) && typeof raw.zIndex === 'number' ? num(raw.zIndex, 0, -1000, 1000) : (undefined as unknown as number) };
   });
+  Object.assign(coordinates, withZIndex(videos.map((v) => v.id), rawCoords));
 
   const requestedMaster = idMap.get(str(src.masterId));
   const masterId = requestedMaster ?? videos[0].id;

@@ -4,8 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https: local-media:; media-src 'self' data: blob: http: https: local-media:; font-src 'self' data:; connect-src 'self' data: blob: ws: wss: local-media:; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
     <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Frame-accurate multi-video reaction player: a black canvas with draggable video layers, source always on top." />
+    <meta name="description" content="Frame-accurate multi-video reaction player: a black canvas with draggable, freely ordered video layers." />
     <title>Reaction Player</title>
     <link
       rel="icon"

@@ -4,7 +4,7 @@
    * the top and bottom borders. Everything that moves is plain data in the
    * stores; this page only wires the pieces together:
    *
-   *   Stage       the canvas and its layers (source always on top)
+   *   Stage       the canvas and its layers, stacked by their zIndex
    *   TopBar      icon-only commands, fades out after the pointer rests
    *   Transport   the bottom dock; per-video lanes that morph into one master bar
    *   LayersPanel numeric editor for the selected layer (right edge)
@@ -21,6 +21,7 @@
   import TopBar from '$lib/components/session/TopBar.svelte';
   import Transport from '$lib/components/session/Transport.svelte';
   import { playback } from '$lib/engine/playback.svelte';
+  import type { ZOp } from '$lib/engine/zorder';
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
   import { settings } from '$lib/stores/settings.svelte';
@@ -104,6 +105,15 @@
     hud.poke();
     if (!s || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
     if (typing(e.target) || ui.menu || ui.shortcutsOpen || ui.newSessionOpen) return;
+
+    // [ and ] reorder the selected layer; Shift goes all the way. The physical key is used so every keyboard layout works.
+    if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+      const op: ZOp = e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward';
+      if (session.selectedId && !session.isLocked) session.reorderLayer(session.selectedId, op);
+      else ui.toast(session.isLocked ? 'Unlock the viewports to change the layer order.' : 'Select a layer first.', 'info');
+      e.preventDefault();
+      return;
+    }
 
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const step = settings.playback.seekStepSec;

@@ -1,6 +1,6 @@
 /**
  * Transient UI state that is not part of a session: toasts, the right-click
- * menu, global dialogs and the dormant “quit” screen.
+ * menu and global dialogs.
  */
 import type { PickedFile } from '../engine/media';
 import type { MenuEntry, MenuRequest, Preset, Toast, ToastKind } from '../types';
@@ -14,8 +14,6 @@ class UIStore {
   /** A preset chosen on the Presets page; New Session opens with it already selected. */
   newSessionPreset = $state<Preset | null>(null);
   shortcutsOpen = $state(false);
-  /** After “Quit”: a web page cannot close itself, so it goes dark instead. */
-  dormant = $state(false);
 
   #nextId = 1;
 

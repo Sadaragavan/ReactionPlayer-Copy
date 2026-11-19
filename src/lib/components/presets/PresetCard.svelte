@@ -7,13 +7,11 @@
   import { Copy, Film, Pencil, Play, Trash2 } from '@lucide/svelte';
   import { CANVAS_ASPECTS } from '$lib/constants';
   import { canvasRatio } from '$lib/engine/capture';
-  import { settings } from '$lib/stores/settings.svelte';
   import type { Preset } from '$lib/types';
   import { plural, timeAgo } from '$lib/utils/format';
   import Button from '../ui/Button.svelte';
   import IconButton from '../ui/IconButton.svelte';
   import LayoutPreview from '../ui/LayoutPreview.svelte';
-  import ProBadge from '../ui/ProBadge.svelte';
 
   interface Props {
     preset: Preset;
@@ -27,16 +25,13 @@
 
   const ratio = $derived(canvasRatio(p.canvasAspect ?? '16:9'));
   const shape = $derived(p.canvasAspect ? CANVAS_ASPECTS.find((a) => a.value === p.canvasAspect)?.label : 'Fits any canvas shape');
-  /** A preset that needs more videos than the plan allows can be copied and edited, but not used. */
-  const tooBig = $derived(p.slots.length > settings.limits.maxVideos);
 </script>
 
 <article class="group flex flex-col border border-line transition-colors duration-150 hover:border-line-strong">
   <button
     type="button"
-    class="relative block aspect-video w-full overflow-hidden border-b border-line bg-black disabled:cursor-not-allowed"
+    class="relative block aspect-video w-full overflow-hidden border-b border-line bg-black"
     aria-label="Use {p.name}"
-    disabled={tooBig}
     onclick={onuse}
   >
     <span class="absolute inset-0 grid place-items-center" style="container-type:size">
@@ -53,7 +48,6 @@
   <div class="flex flex-1 flex-col p-3.5">
     <div class="flex h-8 items-center gap-2">
       <h3 class="min-w-0 flex-1 truncate text-[15px] font-semibold" title={p.name}>{p.name}</h3>
-      {#if tooBig}<ProBadge />{/if}
     </div>
 
     <div class="mt-1 flex items-center justify-between gap-3 text-[12.5px] text-fg-2">
@@ -67,7 +61,7 @@
     </div>
 
     <div class="mt-3.5 flex items-center gap-0.5">
-      <Button size="sm" variant="secondary" class="mr-auto" disabled={tooBig} onclick={onuse}>
+      <Button size="sm" variant="secondary" class="mr-auto" onclick={onuse}>
         <Play size={13} strokeWidth={2} fill="currentColor" class="text-accent" />Use
       </Button>
       <IconButton size="sm" icon={p.builtIn ? Copy : Pencil} label={p.builtIn ? 'Make a copy to edit' : 'Edit'} onclick={onedit} />

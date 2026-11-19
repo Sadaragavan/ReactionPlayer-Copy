@@ -1,12 +1,12 @@
 /**
  * Preset library: the built-in “standard” presets plus the user's own.
- * Custom presets are capped by tier (`limits.maxCustomPresets`).
+ * Custom presets are unlimited.
  */
 import { builtInPresets } from '../engine/layouts';
+import { migratePreset } from '../engine/migrate';
 import type { ID, Preset } from '../types';
 import { uid } from '../utils/format';
 import { idbDelete, idbGetAll, idbPut } from './persistence';
-import { settings } from './settings.svelte';
 
 class PresetStore {
   readonly builtIn: Preset[] = builtInPresets();
@@ -21,23 +21,18 @@ class PresetStore {
     return this.all.filter((p) => p.slots.length <= n);
   }
 
-  get canAddCustom(): boolean {
-    return this.custom.length < settings.limits.maxCustomPresets;
-  }
-
   byId(id: ID | undefined): Preset | undefined {
     return id ? this.all.find((p) => p.id === id) : undefined;
   }
 
   async init(): Promise<void> {
     const stored = await idbGetAll<Preset>('presets');
-    this.custom = stored.sort((a, b) => b.updatedAt - a.updatedAt);
+    this.custom = stored.map(migratePreset).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  /** Adds a new preset (returns null when the tier's limit is reached) or replaces one with the same id. */
-  async save(input: Omit<Preset, 'id' | 'builtIn' | 'createdAt' | 'updatedAt'> & { id?: ID }): Promise<Preset | null> {
+  /** Adds a new preset, or replaces the one with the same id. */
+  async save(input: Omit<Preset, 'id' | 'builtIn' | 'createdAt' | 'updatedAt'> & { id?: ID }): Promise<Preset> {
     const existing = input.id ? this.custom.find((p) => p.id === input.id) : undefined;
-    if (!existing && !this.canAddCustom) return null;
     const now = Date.now();
     const preset: Preset = {
       ...input,

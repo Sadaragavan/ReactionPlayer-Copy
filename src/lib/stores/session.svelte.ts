@@ -8,18 +8,18 @@
  * Mutations go through the methods below; each one schedules a debounced save.
  * Playhead positions arrive from the playback engine via `recordTimes`.
  */
-import { LS_LAST_SESSION } from '../constants';
+import { LS_LAST_SESSION, MAX_VIDEOS } from '../constants';
 import { usesDemoClips, warmDemoClips } from '../engine/demo';
 import { parseConfig } from '../engine/importConfig';
 import { buildLayout, slotsToCoordinates } from '../engine/layouts';
-import { type FsFileHandle, fileFor, forget, registerFile, restoreSessionMedia } from '../engine/media';
+import { type FsFileHandle, type PickedFile, fileFor, forget, registerFile, restoreSessionMedia } from '../engine/media';
+import { migrateSession } from '../engine/migrate';
 import { type NewSessionInput, buildSession, cloneSession, exportConfig } from '../engine/sessionFactory';
 import { offsetsFromLocals, rebaseOffsets } from '../engine/timeline';
+import { type ZOp, reorder, canReorder, zFromTopFirst } from '../engine/zorder';
 import type { ID, LayerTransform, LayoutType, Preset, Session, SessionVideo } from '../types';
 import { saveJSON, slugify, type SaveOutcome } from '../utils/file';
-import { cloud } from '../cloud';
 import { idbDelete, idbGet, idbGetAll, idbPut, lsGet, lsRemove, lsSet } from './persistence';
-import { settings } from './settings.svelte';
 import { ui } from './ui.svelte';
 
 const byRecent = (a: Session, b: Session) => b.lastModified - a.lastModified;
@@ -28,7 +28,7 @@ const clone = <T>(v: T): T => structuredClone($state.snapshot(v)) as T;
 class SessionStore {
   current = $state<Session | null>(null);
   saved = $state<Session[]>([]);
-  lastId = $state<ID | null>(lsGet<ID | null>(LS_LAST_SESSION, null));
+  lastId = $state<ID | null>(null);
   /** The layer the user last touched (transient). */
   selectedId = $state<ID | null>(null);
   /** Local-file videos in the open session that still need a file. */
@@ -57,17 +57,19 @@ class SessionStore {
   }
 
   async init(): Promise<void> {
-    this.saved = (await idbGetAll<Session>('sessions')).sort(byRecent);
+    // Read here, not when the store is created: on desktop the settings file is loaded first (see initPersistence).
+    this.lastId = lsGet<ID | null>(LS_LAST_SESSION, null);
+    this.saved = (await idbGetAll<Session>('sessions')).map(migrateSession).sort(byRecent);
     this.ready = true;
   }
 
   /* ── lifecycle ── */
 
-  /** Builds, registers and opens a new session. Extra videos beyond the tier limit are dropped. */
+  /** Builds, registers and opens a new session. Videos beyond the fourth are dropped. */
   create(input: NewSessionInput): Session {
-    const videos = input.videos.slice(0, settings.limits.maxVideos);
+    const videos = input.videos.slice(0, MAX_VIDEOS);
     const { session, files } = buildSession({ ...input, videos });
-    for (const f of files) registerFile(f.id, f.file, f.handle);
+    for (const f of files) registerFile(f.id, f.picked);
     this.current = session;
     this.selectedId = null;
     this.missing = [];
@@ -80,7 +82,7 @@ class SessionStore {
   async open(id: ID): Promise<boolean> {
     const found = this.saved.find((s) => s.id === id) ?? (await idbGet<Session>('sessions', id));
     if (!found) return false;
-    const s = clone(found);
+    const s = migrateSession(clone(found));
     s.alignment.locked = true;
     s.isTheaterMode = false;
     if (usesDemoClips(s)) await warmDemoClips();
@@ -95,7 +97,7 @@ class SessionStore {
     return this.lastId ? this.open(this.lastId) : Promise.resolve(false);
   }
 
-  /** Writes the session to this browser. Resolves false when the browser refuses storage (a blocked or private frame). */
+  /** Writes the session to disk. Resolves false when it could not be written. */
   async save(): Promise<boolean> {
     const s = this.current;
     if (!s) return false;
@@ -104,7 +106,6 @@ class SessionStore {
     const snap = clone(s);
     this.saved = [snap, ...this.saved.filter((x) => x.id !== snap.id)].sort(byRecent);
     const stored = await idbPut('sessions', snap);
-    if (settings.limits.cloudSync) void cloud.push([snap]).then((r) => r && (snap.syncedAt = r.syncedAt));
     return stored !== undefined;
   }
 
@@ -136,7 +137,8 @@ class SessionStore {
     const { session, idMap } = cloneSession(clone(src));
     for (const [oldId, newId] of Object.entries(idMap)) {
       const file = fileFor(oldId);
-      if (file) registerFile(newId, file);
+      const path = this.video(oldId)?.filePath ?? this.saved.flatMap((x) => x.videos).find((v) => v.id === oldId)?.filePath;
+      if (file || path) registerFile(newId, { file, path, name: file?.name ?? '', size: file?.size ?? 0 });
       else {
         const handle = await idbGet<FsFileHandle>('handles', oldId);
         if (handle) await idbPut('handles', handle, newId);
@@ -174,23 +176,6 @@ class SessionStore {
     await idbPut('sessions', clone(s));
   }
 
-  /** Pro: pushes every saved session, then pulls any the cloud has that are missing or newer. */
-  async syncAll(): Promise<{ pushed: number; pulled: number } | null> {
-    await this.save();
-    const pushed = await cloud.push(this.saved.map((s) => clone(s)));
-    if (!pushed) return null;
-    let pulled = 0;
-    for (const remote of await cloud.pull()) {
-      const local = this.saved.find((s) => s.id === remote.id);
-      if (local && local.updatedAt >= remote.updatedAt) continue;
-      this.saved = [remote, ...this.saved.filter((s) => s.id !== remote.id)].sort(byRecent);
-      await idbPut('sessions', clone(remote));
-      pulled++;
-    }
-    for (const s of this.saved) s.syncedAt = pushed.syncedAt;
-    return { pushed: this.saved.length, pulled };
-  }
-
   /** Offers the session's layout and sync as a `.json` file. Null when there is no such session. */
   async exportJSON(id: ID): Promise<SaveOutcome | null> {
     const s = this.current?.id === id ? clone(this.current) : this.saved.find((x) => x.id === id);
@@ -199,10 +184,9 @@ class SessionStore {
 
   /**
    * Adds a session from the text of an exported config. The result is saved, not
-   * opened; local videos come back as “choose file” prompts. Free accounts cannot
-   * import a session that has more videos than their plan plays.
+   * opened. Local videos play again if their saved path still exists; otherwise they come back as “choose file” prompts.
    */
-  async importConfig(text: string): Promise<Session | { error: string; upgrade?: boolean }> {
+  async importConfig(text: string): Promise<Session | { error: string }> {
     let raw: unknown;
     try {
       raw = JSON.parse(text);
@@ -211,10 +195,6 @@ class SessionStore {
     }
     const imported = parseConfig(raw);
     if (!imported) return { error: 'That file is not a Reaction Player session.' };
-    const max = settings.limits.maxVideos;
-    if (imported.videos.length > max) {
-      return { error: `This session has ${imported.videos.length} videos. Your plan plays up to ${max} at once.`, upgrade: !settings.isPro };
-    }
     this.saved = [imported, ...this.saved].sort(byRecent);
     await idbPut('sessions', clone(imported));
     return imported;
@@ -301,13 +281,13 @@ class SessionStore {
   }
 
   /** A local file for a layer that had none (after a reload, or a fresh pick). */
-  relink(id: ID, file: File, handle?: FsFileHandle): void {
+  relink(id: ID, picked: PickedFile): void {
     const saved = this.video(id);
-    const differs = !!saved?.fileName && (saved.fileName !== file.name || (!!saved.fileSize && saved.fileSize !== file.size));
-    registerFile(id, file, handle);
-    this.updateVideo(id, { kind: 'file', fileName: file.name, fileSize: file.size });
+    const differs = !!saved?.fileName && (saved.fileName !== picked.name || (!!saved.fileSize && saved.fileSize !== picked.size));
+    registerFile(id, picked);
+    this.updateVideo(id, { kind: 'file', fileName: picked.name, fileSize: picked.size, filePath: picked.path });
     this.missing = this.missing.filter((m) => m !== id);
-    if (differs) ui.toast(`“${file.name}” is not the file saved with this layer (“${saved?.fileName}”). Check that it lines up.`, 'info');
+    if (differs) ui.toast(`“${picked.name}” is not the file saved with this layer (“${saved?.fileName}”). Check that it lines up.`, 'info');
   }
 
   /* ── layout ── */
@@ -330,9 +310,42 @@ class SessionStore {
     if (!s) return;
     const i = s.videos.findIndex((v) => v.id === id);
     const slot = s.alignment.base?.[i] ?? buildLayout('split', s.videos.length)[i];
-    if (i < 0 || !slot) return;
-    s.alignment.coordinates[id] = { ...slot, crop: { ...slot.crop } };
+    const cur = s.alignment.coordinates[id];
+    if (i < 0 || !slot || !cur) return;
+    // Placement goes back to its slot; the stacking, hiding and locking are the user's and stay.
+    s.alignment.coordinates[id] = { ...slot, crop: { ...slot.crop }, zIndex: cur.zIndex, hidden: cur.hidden, locked: cur.locked };
     this.schedule();
+  }
+
+  /* ── stacking ── */
+
+  /** Moves a layer in the stack; every layer is re-numbered 0…n-1. */
+  reorderLayer(id: ID, op: ZOp): void {
+    const s = this.current;
+    if (!s || !s.alignment.coordinates[id]) return;
+    const ids = s.videos.map((v) => v.id);
+    const z = reorder(ids, this.#zMap(), id, op);
+    for (const vid of ids) s.alignment.coordinates[vid].zIndex = z[vid];
+    this.schedule();
+  }
+
+  canReorderLayer(id: ID, op: ZOp): boolean {
+    const s = this.current;
+    return !!s && !s.alignment.locked && canReorder(s.videos.map((v) => v.id), this.#zMap(), id, op);
+  }
+
+  /** The Layers panel's drag and drop: the list, top layer first, becomes the stack. */
+  setStackOrder(topFirstIds: ID[]): void {
+    const s = this.current;
+    if (!s || topFirstIds.length !== s.videos.length) return;
+    const z = zFromTopFirst(topFirstIds);
+    for (const v of s.videos) if (z[v.id] !== undefined) s.alignment.coordinates[v.id].zIndex = z[v.id];
+    this.schedule();
+  }
+
+  #zMap(): Record<ID, number> {
+    const s = this.current;
+    return Object.fromEntries((s?.videos ?? []).map((v) => [v.id, s!.alignment.coordinates[v.id].zIndex]));
   }
 
   applyLayout(type: Exclude<LayoutType, 'custom'>): void {

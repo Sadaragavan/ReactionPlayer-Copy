@@ -4,7 +4,11 @@
  * stores again whenever the panel re-renders, so a nudge is visible at once.
  */
 import {
+  ArrowDownToLine,
+  ArrowUpToLine,
   AudioLines,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Gauge,
   LayoutGrid,
@@ -24,7 +28,8 @@ import { captureErrorMessage } from '$lib/engine/capture';
 import { playback } from '$lib/engine/playback.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { ui } from '$lib/stores/ui.svelte';
-import type { ID, MenuEntry } from '$lib/types';
+import { type ZOp, Z_LABEL } from '$lib/engine/zorder';
+import type { ID, IconComponent, MenuEntry } from '$lib/types';
 import { formatOffset } from '$lib/utils/format';
 import { toggleFullscreen } from '$lib/utils/fullscreen';
 
@@ -65,6 +70,13 @@ function audioTracks(id: ID): TrackList | null {
   return list && list.length > 1 ? list : null;
 }
 
+const Z_ENTRIES: { op: ZOp; icon: IconComponent; hint: string }[] = [
+  { op: 'front', icon: ArrowUpToLine, hint: 'Shift ]' },
+  { op: 'forward', icon: ChevronUp, hint: ']' },
+  { op: 'backward', icon: ChevronDown, hint: '[' },
+  { op: 'back', icon: ArrowDownToLine, hint: 'Shift [' }
+];
+
 /** The right-click menu of one video layer. */
 export function videoMenu(id: ID): MenuEntry[] {
   const s = session.current;
@@ -98,6 +110,15 @@ export function videoMenu(id: ID): MenuEntry[] {
       disabled: locked,
       onSelect: () => session.resetLayer(id)
     },
+    { type: 'separator', id: 'sep-z' },
+    ...Z_ENTRIES.map(({ op, icon, hint }) => ({
+      id: `z-${op}`,
+      label: Z_LABEL[op],
+      icon,
+      hint: locked ? 'Locked' : hint,
+      disabled: !session.canReorderLayer(id, op),
+      onSelect: () => session.reorderLayer(id, op)
+    })),
     { type: 'separator', id: 'sep-a' },
     {
       id: 'speed',

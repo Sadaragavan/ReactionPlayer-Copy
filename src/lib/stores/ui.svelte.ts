@@ -14,6 +14,10 @@ class UIStore {
   /** A preset chosen on the Presets page; New Session opens with it already selected. */
   newSessionPreset = $state<Preset | null>(null);
   shortcutsOpen = $state(false);
+  /** The “Add a source” dialog (another episode for the source layer). */
+  addSourceOpen = $state(false);
+  /** Sessions whose “play another source?” question was dismissed, keyed by session and number of sources. */
+  sourcePromptDismissed = $state<Record<string, true>>({});
 
   #nextId = 1;
 

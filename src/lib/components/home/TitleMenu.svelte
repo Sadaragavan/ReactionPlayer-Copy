@@ -203,57 +203,47 @@
     opacity: 0.7;
   }
 
-  /* One streaking underline for everything clickable. `--sx` is the pointer's x inside the element (actions/streak.ts). */
+  /*
+   * One underline for everything clickable. It is not tied to the pointer: when the item is hot (hovered, or focused from the
+   * keyboard, see actions/streak.ts) it draws in from the left edge across the whole word, and when the pointer leaves it fades out.
+   * The word itself glows while it is hot.
+   */
   .streaky {
     position: relative;
-    --sx: 0px;
     --rest: var(--paper-2);
     --lit: #fff3d6;
     color: var(--rest);
     text-align: left;
     white-space: nowrap;
     transition:
-      color 160ms ease-out,
-      text-shadow 220ms ease-out;
+      color 200ms ease-out,
+      text-shadow 260ms ease-out;
   }
   .streaky::after {
     content: '';
     position: absolute;
     left: 0;
+    right: 0;
     bottom: 0;
-    width: var(--sx);
     height: 2px;
-    background: linear-gradient(90deg, transparent, rgb(255 168 56 / 0.55) 55%, var(--ember-core));
+    background: linear-gradient(90deg, rgb(255 168 56 / 0.55), var(--ember-core));
     box-shadow: 0 0 8px rgb(255 160 50 / 0.55);
+    transform: scaleX(0);
+    transform-origin: left center;
     opacity: 0;
     transition:
-      width 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      opacity 240ms ease-out;
+      transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 220ms ease-out;
   }
-  .streaky::before {
-    content: '';
-    position: absolute;
-    left: var(--sx);
-    bottom: -4px;
-    width: 10px;
-    height: 10px;
-    margin-left: -5px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--ember-core) 0 24%, rgb(255 190 80 / 0.75) 46%, transparent 72%);
-    opacity: 0;
-    transition:
-      left 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      opacity 240ms ease-out;
-  }
-  .streaky:global([data-hot='true'])::after,
-  .streaky:global([data-hot='true'])::before {
+  .streaky:global([data-hot='true'])::after {
+    transform: scaleX(1);
     opacity: 1;
   }
   .streaky:global([data-hot='true']) {
     color: var(--lit);
     text-shadow:
-      0 0 10px rgb(255 190 90 / 0.6),
-      0 0 2px rgb(255 235 190 / 0.6);
+      0 0 0.75em rgb(255 190 90 / 0.8),
+      0 0 0.22em rgb(255 235 190 / 0.75);
   }
   .streaky:active {
     filter: brightness(0.9);

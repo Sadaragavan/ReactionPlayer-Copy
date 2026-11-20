@@ -29,6 +29,9 @@ CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds install
 - Layers are painted by `zIndex` (`sortByZ` in `src/lib/engine/zorder.ts`) and the pointer is tested with `hitTest` from the highest
   down, skipping hidden and locked layers. Anything that reads a stored layer, session or preset must go through
   `migrate.ts` first, so old saves without `zIndex` still work. Layout builders must give every slot a `zIndex`.
+- A source layer may hold a playlist (`SessionVideo.sources`). While it does, the layer's own title, kind, url, filePath, duration, offsetMs and `waiting`
+  mirror the current episode (`mirrorCurrentItem`), so most code never sees the playlist. Media for an episode is registered under the episode's id
+  (`session.mediaIdOf`). Change it only through the `session` store (`addSource`, `moveSource`, `activateSource`, `startSource` …).
 - There are no plans, tiers or limits other than four videos (`MAX_VIDEOS`). Do not bring gating back.
 - Anything the page may ask of the system goes through `window.electronAPI` (`src/shared/api.ts`, `electron/preload.ts`) and must
   still have a browser fallback via `$lib/platform`. IPC handlers check the sender (`trusted` in `electron/main.ts`).

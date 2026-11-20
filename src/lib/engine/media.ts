@@ -122,6 +122,19 @@ export const needsRelink = (video: Pick<SessionVideo, 'id' | 'kind' | 'url'>) =>
 
 export const fileFor = (id: ID) => files.get(id);
 
+/** Makes `to` play whatever `from` plays (a playlist that shrinks back to one video keeps the survivor's media under the layer's id). */
+export function aliasMedia(from: ID, to: ID): void {
+  const url = urls.get(from);
+  if (url) urls.set(to, url);
+  const file = files.get(from);
+  if (file) files.set(to, file);
+}
+
+/** Every piece of media a session needs: each video, or each item of a source playlist. */
+export function mediaItems(session: Session): Pick<SessionVideo, 'id' | 'kind' | 'filePath'>[] {
+  return session.videos.flatMap((v): Pick<SessionVideo, 'id' | 'kind' | 'filePath'>[] => v.sources ?? [v]);
+}
+
 export function release(ids: ID[]): void {
   for (const id of ids) {
     const url = urls.get(id);
@@ -143,7 +156,7 @@ export function forget(ids: ID[]): void {
  */
 export async function restoreSessionMedia(session: Session): Promise<ID[]> {
   const missing: ID[] = [];
-  for (const v of session.videos) {
+  for (const v of mediaItems(session)) {
     if (v.kind !== 'file' || urls.has(v.id)) continue;
     let ok = false;
     try {

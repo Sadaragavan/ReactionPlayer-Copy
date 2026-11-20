@@ -96,6 +96,7 @@ export const DB_VERSION = 1;
 export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['Space'], label: 'Play or pause everything' },
   { keys: ['L'], label: 'Link or unlink the timelines' },
+  { keys: ['N'], label: 'Start the next source (it waits on its first frame)' },
   { keys: ['T'], label: 'Theater mode' },
   { keys: ['F'], label: 'Fullscreen' },
   // `{step}` is replaced with the Preferences → Arrow-key seek value when the list is shown.

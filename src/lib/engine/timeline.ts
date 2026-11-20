@@ -8,29 +8,33 @@
  */
 import type { ID, SessionVideo } from '../types';
 
-export type TimelineVideo = Pick<SessionVideo, 'id' | 'offsetMs'> & { duration: number };
+export type TimelineVideo = Pick<SessionVideo, 'id' | 'offsetMs'> & {
+  duration: number;
+  /** A source that has not been started: it never has footage on the timeline until it is. */
+  waiting?: boolean;
+  /** Playlist: the stretch of timeline the whole playlist covers, instead of just the current item's. */
+  span?: { start: number; end: number };
+};
 
 export const localAt = (v: Pick<SessionVideo, 'offsetMs'>, master: number) => master + v.offsetMs / 1000;
 
 export const isActive = (v: TimelineVideo, master: number) => {
+  if (v.waiting) return false;
   const l = localAt(v, master);
   return l >= 0 && l < v.duration;
 };
 
 /** Where video `v` should be parked at master time `T` (clamped to its own length). */
-export const clampLocal = (v: TimelineVideo, master: number) => Math.min(Math.max(0, localAt(v, master)), Math.max(0, v.duration));
+export const clampLocal = (v: TimelineVideo, master: number) => (v.waiting ? 0 : Math.min(Math.max(0, localAt(v, master)), Math.max(0, v.duration)));
 
 /**
  * The span of master time during which at least one video has footage.
  * Videos whose duration is still unknown are ignored.
  */
 export function timelineRange(videos: TimelineVideo[]): { start: number; end: number } {
-  const known = videos.filter((v) => v.duration > 0);
-  if (!known.length) return { start: 0, end: 0 };
-  return {
-    start: Math.min(...known.map((v) => -v.offsetMs / 1000)),
-    end: Math.max(...known.map((v) => v.duration - v.offsetMs / 1000))
-  };
+  const spans = videos.flatMap((v) => (v.span ? [v.span] : v.duration > 0 && !v.waiting ? [{ start: -v.offsetMs / 1000 + 0, end: v.duration - v.offsetMs / 1000 }] : []));
+  if (!spans.length) return { start: 0, end: 0 };
+  return { start: Math.min(...spans.map((s) => s.start)), end: Math.max(...spans.map((s) => s.end)) };
 }
 
 /**

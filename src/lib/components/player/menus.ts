@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  ListPlus,
   Gauge,
   LayoutGrid,
   Lock,
@@ -110,6 +111,9 @@ export function videoMenu(id: ID): MenuEntry[] {
       disabled: locked,
       onSelect: () => session.resetLayer(id)
     },
+    ...(v?.role === 'source'
+      ? ([{ id: 'add-source', label: 'Add another source…', icon: ListPlus, onSelect: () => (ui.addSourceOpen = true) }] as MenuEntry[])
+      : []),
     { type: 'separator', id: 'sep-z' },
     ...Z_ENTRIES.map(({ op, icon, hint }) => ({
       id: `z-${op}`,

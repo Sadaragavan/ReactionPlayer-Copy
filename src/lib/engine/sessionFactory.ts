@@ -2,7 +2,7 @@
  * Pure builders for sessions: create, duplicate, export. No stores, no DOM,
  * so they can be unit-tested and reused by the demo loader.
  */
-import type { CanvasAspect, ID, LayoutType, MasterAudioPolicy, MediaKind, Preset, Session, SessionVideo, VideoRole } from '../types';
+import type { CanvasAspect, ID, LayoutType, MasterAudioPolicy, MediaKind, Preset, Session, SessionVideo, SourceItem, VideoRole } from '../types';
 import { uid } from '../utils/format';
 import type { FsFileHandle, PickedFile } from './media';
 import { buildLayout, slotsToCoordinates } from './layouts';
@@ -22,6 +22,8 @@ export interface NewVideoInput {
   /** Shift relative to the *first* video: `local = t(first) + offsetMs / 1000`. */
   offsetMs?: number;
   duration?: number;
+  /** For the source only: more episodes that play after it, in this order. Each waits to be started by hand. */
+  moreSources?: NewVideoInput[];
 }
 
 export interface NewSessionInput {
@@ -72,9 +74,32 @@ export function buildSession(input: NewSessionInput, now = Date.now()): BuiltSes
     offsetMs: v.offsetMs ?? 0
   }));
 
-  const masterId = (input.masterPolicy === 'reaction' ? raw[1] : raw[0]).id;
+  // With several sources the clock cannot be the source (it would restart with every episode): the reaction keeps it.
+  const more = inputs[0].moreSources ?? [];
+  const masterId = (input.masterPolicy === 'reaction' || more.length ? raw[1] : raw[0]).id;
   const offsets = rebaseOffsets(raw, masterId);
   const videos = raw.map((v) => ({ ...v, offsetMs: offsets[v.id], muted: v.id !== masterId }));
+
+  const extraItems: SourceItem[] = more.map((m) => ({
+    id: uid('vid'),
+    title: m.title,
+    kind: m.kind,
+    url: m.kind === 'file' ? '' : m.url,
+    filePath: m.kind === 'file' ? m.path : undefined,
+    fileName: m.fileName ?? m.file?.name,
+    fileSize: m.fileSize ?? m.file?.size,
+    duration: m.duration ?? 0,
+    gapMs: null
+  }));
+  if (extraItems.length) {
+    const first = videos[0];
+    first.sources = [
+      { id: first.id, title: first.title, kind: first.kind, url: first.url, filePath: first.filePath, fileName: first.fileName, fileSize: first.fileSize, duration: first.duration, gapMs: null },
+      ...extraItems
+    ];
+    first.sourceIndex = 0;
+    first.firstOffsetMs = first.offsetMs;
+  }
 
   const preset = typeof input.layout === 'object' ? input.layout.preset : null;
   const layoutType: LayoutType = preset ? preset.layoutType : (input.layout as LayoutType);
@@ -100,9 +125,11 @@ export function buildSession(input: NewSessionInput, now = Date.now()): BuiltSes
     presetId: preset?.id
   };
 
-  const files = inputs.flatMap((v, i) =>
-    v.file || v.path ? [{ id: videos[i].id, picked: { file: v.file, path: v.path, handle: v.handle, name: v.fileName ?? v.file?.name ?? '', size: v.fileSize ?? v.file?.size ?? 0 } }] : []
-  );
+  const pick = (v: NewVideoInput): PickedFile => ({ file: v.file, path: v.path, handle: v.handle, name: v.fileName ?? v.file?.name ?? '', size: v.fileSize ?? v.file?.size ?? 0 });
+  const files = [
+    ...inputs.flatMap((v, i) => (v.file || v.path ? [{ id: videos[i].id, picked: pick(v) }] : [])),
+    ...more.flatMap((v, k) => (v.file || v.path ? [{ id: extraItems[k].id, picked: pick(v) }] : []))
+  ];
   return { session, files };
 }
 
@@ -115,7 +142,13 @@ export function cloneSession(src: Session, now = Date.now()): { session: Session
   const videos = src.videos.map((v) => {
     const id = uid('vid');
     idMap[v.id] = id;
-    return { ...v, id };
+    // A playlist's episodes need new ids too; the first still shares the layer's.
+    const sources = v.sources?.map((it) => {
+      const itemId = it.id === v.id ? id : uid('vid');
+      idMap[it.id] = itemId;
+      return { ...it, id: itemId };
+    });
+    return { ...v, id, sources };
   });
   const coordinates: Session['alignment']['coordinates'] = {};
   for (const [oldId, t] of Object.entries(src.alignment.coordinates)) {
@@ -142,6 +175,9 @@ export function exportConfig(session: Session) {
     app: 'reaction-player',
     version: 1,
     exportedAt: new Date().toISOString(),
-    session: { ...rest, videos: rest.videos.map((v) => ({ ...v, url: v.kind === 'file' ? '' : v.url })) }
+    session: {
+      ...rest,
+      videos: rest.videos.map((v) => ({ ...v, url: v.kind === 'file' ? '' : v.url, sources: v.sources?.map((it) => ({ ...it, url: it.kind === 'file' ? '' : it.url })) }))
+    }
   };
 }

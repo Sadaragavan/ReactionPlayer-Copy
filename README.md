@@ -71,6 +71,11 @@ any distribution: `chmod +x reaction-player-*.AppImage && ./reaction-player-*.Ap
   ±100 ms). Small drift is absorbed by a barely audible speed nudge, large drift by a seek.
   Unlinked mode plays and scrubs each video on its own so you can find the offset by eye, then link.
 - **Frame stepping.** `,` and `.` step one frame using the frame rate measured from the video itself.
+- **Several sources.** When the reaction covers more than one episode, add sources (Layers panel → Sources, the source's right-click menu,
+  or **Add another source** in New session). They play in the source layer one after another, and the reaction keeps the clock. When an
+  episode ends, the next one is swapped in at once on its first frame and **waits**: press `N` (or **Start it**) when the reactor starts
+  it, or give it an automatic break in the playlist. Drag episodes in the playlist to reorder them. If the reaction runs longer than the
+  source, the player asks whether to add another source.
 - **Videos of different lengths.** The timeline is the union of all footage. A video that has not started yet, or
   has ended, waits on its first or last frame while the others play, and playback stops when every video has ended.
 - **Copy frame** (right-click a layer) puts that video's current picture, with its crop, on the system clipboard through
@@ -80,8 +85,9 @@ any distribution: `chmod +x reaction-player-*.AppImage && ./reaction-player-*.Ap
 
 | Key | Action |
 | --- | --- |
-| `Space` | Play or pause everything |
+| `Space` | Play or pause everything (unlinked: the active clip, the last one you clicked) |
 | `L` | Link or unlink the timelines |
+| `N` | Start the next source, which waits on its first frame |
 | `T` | Theater mode |
 | `F` | Fullscreen (the native window) |
 | `←` `→` | Seek by the Preferences step (5 s by default); one frame while paused |
@@ -93,6 +99,8 @@ any distribution: `chmod +x reaction-player-*.AppImage && ./reaction-player-*.Ap
 | `Shift` + `]` / `Shift` + `[` | Bring the selected layer to the front / send it to the back |
 | `Esc` | Leave theater mode, then deselect, then close the panel |
 | `?` | Show the shortcuts (works on every screen) |
+
+While the timelines are unlinked, `Space`, `←` `→`, `,` `.` and `M` act on the **active clip**, the layer you last clicked or selected (shown with a dotted outline), instead of every clip.
 
 In the alignment studio `,` `.` step the sampled video, `C` captures the frame, and the wipe line moves with the arrow keys (1 %, Shift for 10 %).
 

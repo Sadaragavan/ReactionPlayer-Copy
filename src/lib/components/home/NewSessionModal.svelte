@@ -1,12 +1,13 @@
 <script lang="ts">
   /**
    * New Session stepper.
-   *   1 · Videos   a source, a reaction and two optional extra angles: drop, browse or paste a link
+   *   1 · Videos   a source, a reaction and two optional extra angles: drop, browse or paste a link.
+   *                When the reaction covers several episodes, more sources can follow the first; they play one after another.
    *   2 · Layout   split / grid / corner or a preset, canvas shape, linked or free timelines
    * Opened from the dock, or by dropping files on Home (`ui.newSessionFiles` pre-fills the slots).
    */
   import { untrack } from 'svelte';
-  import { ArrowLeft, ArrowRight, Sparkles } from '@lucide/svelte';
+  import { ArrowLeft, ArrowRight, Plus, Sparkles } from '@lucide/svelte';
   import { demoSessionInput, warmDemoClips } from '$lib/engine/demo';
   import { MAX_VIDEOS } from '$lib/constants';
   import { pickVideoFiles, pickedUrl, releasePickedUrl, type PickedFile } from '$lib/engine/media';
@@ -27,6 +28,8 @@
 
   let step = $state<1 | 2>(1);
   let slots = $state<(SlotData | null)[]>([null, null, null, null]);
+  /** Further sources that play after the first, in order. */
+  let more = $state<(SlotData | null)[]>([]);
   let layout = $state<Exclude<LayoutType, 'custom'>>('split');
   let preset = $state<Preset | null>(null);
   let canvas = $state<CanvasAspect>('16:9');
@@ -34,9 +37,11 @@
   let name = $state('');
 
   const maxVideos = MAX_VIDEOS;
+  const MAX_SOURCES = 20;
   const filled = $derived(slots.filter((s): s is SlotData => s !== null));
+  const moreFilled = $derived(more.filter((s): s is SlotData => s !== null));
   const good = (s: SlotData | null) => !!s && !s.busy && !s.error;
-  const ready = $derived(good(slots[0]) && good(slots[1]) && filled.every((s) => !s.busy && !s.error));
+  const ready = $derived(good(slots[0]) && good(slots[1]) && [...filled, ...moreFilled].every((s) => !s.busy && !s.error));
 
   // Every time the dialog opens it starts clean, then takes any files dropped on Home.
   $effect(() => {
@@ -44,6 +49,7 @@
     untrack(() => {
       step = 1;
       slots = [null, null, null, null];
+      more = [];
       const wanted = ui.newSessionPreset;
       ui.newSessionPreset = null;
       preset = wanted;
@@ -58,27 +64,29 @@
   });
 
   /** Reads duration, size and a still, and writes them into the slot — unless the slot was refilled meanwhile. */
-  async function load(i: number, base: SlotData, src: string) {
-    slots[i] = { ...base, busy: true };
-    const same = () => slots[i]?.file === base.file && slots[i]?.url === base.url;
+  /** `list` picks the slots (the main four) or the extra sources that follow the first one. */
+  async function load(i: number, base: SlotData, src: string, list: 'main' | 'more' = 'main') {
+    const arr = () => (list === 'main' ? slots : more);
+    arr()[i] = { ...base, busy: true };
+    const same = () => arr()[i]?.file === base.file && arr()[i]?.url === base.url;
     try {
       const r = await probeVideo(src);
-      if (same()) slots[i] = { ...base, duration: r.duration, width: r.width, height: r.height, thumb: r.thumb };
+      if (same()) arr()[i] = { ...base, duration: r.duration, width: r.width, height: r.height, thumb: r.thumb };
     } catch (err) {
-      if (same()) slots[i] = { ...base, error: err instanceof Error ? err.message : 'Could not read this video.' };
+      if (same()) arr()[i] = { ...base, error: err instanceof Error ? err.message : 'Could not read this video.' };
     }
   }
 
-  async function setFile(i: number, p: PickedFile) {
+  async function setFile(i: number, p: PickedFile, list: 'main' | 'more' = 'main') {
     const src = pickedUrl(p);
     try {
-      await load(i, { title: titleFromFileName(p.name), kind: 'file', url: '', file: p.file, path: p.path, handle: p.handle, fileName: p.name, fileSize: p.size }, src);
+      await load(i, { title: titleFromFileName(p.name), kind: 'file', url: '', file: p.file, path: p.path, handle: p.handle, fileName: p.name, fileSize: p.size }, src, list);
     } finally {
       releasePickedUrl(p, src);
     }
   }
 
-  async function setUrl(i: number, raw: string) {
+  async function setUrl(i: number, raw: string, list: 'main' | 'more' = 'main') {
     let u: URL;
     try {
       u = new URL(raw);
@@ -88,18 +96,22 @@
       return;
     }
     const tail = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() ?? '') || u.hostname;
-    await load(i, { title: titleFromFileName(tail), kind: 'url', url: u.href }, u.href);
+    await load(i, { title: titleFromFileName(tail), kind: 'url', url: u.href }, u.href, list);
   }
 
-  async function choose(i: number) {
+  async function choose(i: number, list: 'main' | 'more' = 'main') {
     const [picked] = await pickVideoFiles(false);
-    if (picked) await setFile(i, picked);
+    if (picked) await setFile(i, picked, list);
+  }
+
+  function addSource() {
+    if (more.length < MAX_SOURCES - 1) more.push(null);
   }
 
   const close = () => (ui.newSessionOpen = false);
 
   function start() {
-    const videos: NewVideoInput[] = filled.map((s) => ({
+    const toInput = (s: SlotData): NewVideoInput => ({
       title: s.title,
       kind: s.kind,
       url: s.kind === 'url' ? s.url : '',
@@ -109,7 +121,9 @@
       fileName: s.fileName,
       fileSize: s.fileSize,
       duration: s.duration
-    }));
+    });
+    const videos = filled.map(toInput);
+    if (moreFilled.length) videos[0] = { ...videos[0], moreSources: moreFilled.map(toInput) };
     session.create({
       name: name.trim() || undefined,
       videos,
@@ -147,13 +161,28 @@
           <VideoSlot
             role={roleForIndex(i)}
             label={i > 1 ? `${ROLE_LABEL.extra} ${i - 1}` : ROLE_LABEL[roleForIndex(i)]}
-            hint={HINTS[i]}
+            hint={i === 0 && more.length ? 'The first episode. The sources below play after it.' : HINTS[i]}
             {slot}
             onchoose={() => choose(i)}
             onfiles={(files) => files[0] && setFile(i, files[0])}
             onurl={(u) => setUrl(i, u)}
             onclear={() => (slots[i] = null)}
           />
+          {#if i === 0}
+            {#each more as extra, k (k)}
+              <VideoSlot
+                role="source"
+                label="Source {k + 2}"
+                hint="Plays after Source {k + 1}. It waits on its first frame until you start it."
+                slot={extra}
+                onchoose={() => choose(k, 'more')}
+                onfiles={(files) => files[0] && setFile(k, files[0], 'more')}
+                onurl={(u) => setUrl(k, u, 'more')}
+                onclear={() => more.splice(k, 1)}
+              />
+            {/each}
+            <Button variant="ghost" size="sm" icon={Plus} onclick={addSource}>Add another source</Button>
+          {/if}
         {/each}
       </div>
     {:else}

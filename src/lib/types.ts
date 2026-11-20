@@ -101,6 +101,36 @@ export interface SessionVideo {
   offsetMs: number;
   /** Index into `video.audioTracks` when the browser exposes them. */
   audioTrack?: number;
+  /**
+   * The source playlist: episodes played one after another in this one layer. Present only when there are two or more.
+   * The first item has this video's own id. While a playlist exists the fields above (title, kind, url, filePath, fileName,
+   * fileSize, duration, offsetMs) mirror the current item, so the rest of the app treats the layer like any other video.
+   */
+  sources?: SourceItem[];
+  /** Which playlist item is on screen. */
+  sourceIndex?: number;
+  /** Where the first playlist item sits on the timeline (its `offsetMs`); the others follow it. */
+  firstOffsetMs?: number;
+  /** The current playlist item has not been started yet: it waits on its first frame until the user starts it. */
+  waiting?: boolean;
+}
+
+/** One episode in a source playlist. */
+export interface SourceItem {
+  /** Names this item's media. The first item shares the layer's id. */
+  id: ID;
+  title: string;
+  kind: MediaKind;
+  url: string;
+  filePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  duration: number;
+  /**
+   * The break between the end of the previous item and the start of this one, in ms. `null` means “wait for me to start it”:
+   * the item is shown on its first frame, paused, and the reaction plays on. Ignored for the first item.
+   */
+  gapMs: number | null;
 }
 
 export interface Alignment {

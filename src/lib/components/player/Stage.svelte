@@ -116,6 +116,7 @@
       return;
     }
     const id = pick(e);
+    if (id) session.activate(id);
     if (!id) session.select(null);
     else if (session.isLocked) togglePlay(id);
     else session.select(id);

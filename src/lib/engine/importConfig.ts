@@ -9,10 +9,11 @@
  */
 import { isVideoPath } from '../../shared/mediaUrl';
 import { ASPECT_OPTIONS, CANVAS_ASPECTS, MIN_LAYER_SIZE } from '../constants';
-import type { AspectLock, CanvasAspect, Crop, FitMode, ID, LayerTransform, LayoutType, Session, SessionVideo } from '../types';
+import type { AspectLock, CanvasAspect, Crop, FitMode, ID, LayerTransform, LayoutType, Session, SessionVideo, SourceItem } from '../types';
 import { uid } from '../utils/format';
 import { ZERO_CROP, clamp } from '../utils/geometry';
 import { buildLayout } from './layouts';
+import { mirrorCurrentItem } from './playlist';
 import { withZIndex } from './zorder';
 import { defaultSessionName, roleForIndex } from './sessionFactory';
 
@@ -62,6 +63,32 @@ function cleanTransform(raw: unknown, fallback: LayerTransform): LayerTransform 
 }
 
 /** Returns a new, locked session, or `null` when `raw` is not a Reaction Player config. */
+/** The source playlist of the first video, when the file has one with two or more episodes. Item ids are renewed; the first takes the layer's. */
+function cleanPlaylist(v: Record<string, unknown>, layerId: ID): Partial<SessionVideo> {
+  if (!Array.isArray(v.sources) || v.sources.length < 2 || v.sources.length > 50) return {};
+  const items: SourceItem[] = v.sources.filter(isObj).map((x, k) => {
+    const url = str(x.url, '', 2048);
+    const remote = x.kind === 'url' && REMOTE.test(url);
+    return {
+      id: k === 0 ? layerId : uid('vid'),
+      title: str(x.title, `Source ${k + 1}`, 120),
+      kind: remote ? 'url' : 'file',
+      url: remote ? url : '',
+      fileName: typeof x.fileName === 'string' ? x.fileName.slice(0, 260) : undefined,
+      filePath: !remote && typeof x.filePath === 'string' && x.filePath.length <= 1024 && isVideoPath(x.filePath) ? x.filePath : undefined,
+      fileSize: typeof x.fileSize === 'number' && x.fileSize >= 0 ? x.fileSize : undefined,
+      duration: num(x.duration, 0, 0),
+      gapMs: k === 0 || x.gapMs === null ? null : Math.round(num(x.gapMs, 0, 0, 86_400_000))
+    };
+  });
+  if (items.length < 2) return {};
+  return {
+    sources: items,
+    sourceIndex: Math.floor(num(v.sourceIndex, 0, 0, items.length - 1)),
+    firstOffsetMs: Math.round(num(v.firstOffsetMs, 0, -3_600_000, 3_600_000))
+  };
+}
+
 export function parseConfig(raw: unknown, now = Date.now()): Session | null {
   if (!isObj(raw) || raw.app !== 'reaction-player' || !isObj(raw.session)) return null;
   const src = raw.session;
@@ -89,9 +116,12 @@ export function parseConfig(raw: unknown, now = Date.now()): Session | null {
       muted: v.muted === true,
       playbackRate: num(v.playbackRate, 1, 0.25, 4),
       offsetMs: Math.round(num(v.offsetMs, 0, -3_600_000, 3_600_000)),
-      audioTrack: typeof v.audioTrack === 'number' && v.audioTrack >= 0 ? Math.floor(v.audioTrack) : undefined
+      audioTrack: typeof v.audioTrack === 'number' && v.audioTrack >= 0 ? Math.floor(v.audioTrack) : undefined,
+      ...(i === 0 ? cleanPlaylist(v, id) : {})
     };
   });
+
+  for (const v of videos) mirrorCurrentItem(v);
 
   const alignment = isObj(src.alignment) ? src.alignment : {};
   const given = isObj(alignment.coordinates) ? alignment.coordinates : {};

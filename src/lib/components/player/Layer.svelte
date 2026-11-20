@@ -33,6 +33,8 @@
   const locked = $derived(session.isLocked);
   const selected = $derived(!locked && session.selectedId === video.id);
   const isMaster = $derived(session.current?.masterId === video.id);
+  /** Unlinked, the keyboard acts on this clip. */
+  const active = $derived(!!session.current && !session.current.isLinked && session.activeVideo?.id === video.id);
   const failed = $derived(!!playback.failed[video.id]);
 
   /** Compositing hint from Preferences: `on` always promotes the layer to the GPU, `auto` only while something plays. */
@@ -43,7 +45,7 @@
   // `session.missing` is reactive, the file registry behind `playableUrl` is not: reading it keeps the URL fresh after a relink.
   const src = $derived.by(() => {
     void session.missing;
-    return playableUrl(video);
+    return playableUrl({ id: session.mediaIdOf(video), kind: video.kind, url: video.url });
   });
   const needsFile = $derived(video.kind === 'file' && !src);
 
@@ -57,7 +59,7 @@
 
   async function chooseFile() {
     const [picked] = await pickVideoFiles(false);
-    if (picked) session.relink(video.id, picked);
+    if (picked) session.relink(session.mediaIdOf(video), picked);
   }
 
   /** Registers the element with the sync engine for as long as the layer exists. */
@@ -85,6 +87,7 @@
     data-layer={video.id}
     data-role={video.role}
     data-selected={selected}
+    data-active={active}
     style="{rectToStyle(t)};z-index:{z}"
   >
     <div class="absolute inset-0 overflow-hidden bg-black" style="opacity:{t.hidden ? 0 : t.opacity}" bind:clientWidth={bw} bind:clientHeight={bh}>
@@ -153,7 +156,8 @@
   }
   :global([data-chrome='true']) .frame,
   :global([data-chrome='true']) .badge,
-  .layer[data-selected='true'] .frame {
+  .layer[data-selected='true'] .frame,
+  .layer[data-active='true'] .frame {
     opacity: 1;
   }
   :global([data-chrome='true']) .badge {
@@ -165,6 +169,9 @@
   }
   .layer[data-role='source'] .frame {
     outline-color: var(--color-accent-line);
+  }
+  .layer[data-active='true'] .frame {
+    outline: 1.5px dotted rgb(255 255 255 / 0.85);
   }
   .layer[data-selected='true'] .frame {
     outline: 1.5px dashed #fff;

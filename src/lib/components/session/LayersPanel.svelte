@@ -24,6 +24,7 @@
   import { playback } from '$lib/engine/playback.svelte';
   import { ROLE_LABEL } from '$lib/engine/sessionFactory';
   import { moveInTopFirst, videosByZ } from '$lib/engine/zorder';
+  import SourcePlaylist from './SourcePlaylist.svelte';
   import { presets } from '$lib/stores/presets.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
@@ -160,6 +161,8 @@
         <Button size="sm" variant="secondary" icon={LockOpen} onclick={() => session.setLocked(false)}>Unlock</Button>
       </div>
     {/if}
+
+    <SourcePlaylist />
 
     <ul class="py-1">
       {#each rows as v, k (v.id)}

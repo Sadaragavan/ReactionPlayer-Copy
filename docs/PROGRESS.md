@@ -17,6 +17,7 @@ The root font size is 14 px, so Tailwind spacing utilities scale by 0.875; expli
 - [x] Free layer ordering: `zIndex`, Layers panel, context menu, `[` `]` shortcuts, per-layer hide and lock, migration of old saves
 - [x] Packaging (pacman, AppImage, tar.gz, NSIS, portable, dmg, zip) and the GitHub Actions workflow
 - [x] Unit tests (`npm test`)
+- [x] Source playlists, the active clip for unlinked shortcuts, the Home hover glow
 
 ## Design rules (decided, so do not re-debate)
 

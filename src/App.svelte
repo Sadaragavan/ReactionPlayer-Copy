@@ -14,6 +14,7 @@
   import ShortcutsDialog from '$lib/components/ui/ShortcutsDialog.svelte';
   import Toasts from '$lib/components/ui/Toasts.svelte';
   import NewSessionModal from '$lib/components/home/NewSessionModal.svelte';
+  import AddSourceDialog from '$lib/components/session/AddSourceDialog.svelte';
   import Home from '$lib/pages/Home.svelte';
   import Presets from '$lib/pages/Presets.svelte';
   import Sessions from '$lib/pages/Sessions.svelte';
@@ -71,6 +72,7 @@
 {/if}
 
 <NewSessionModal />
+<AddSourceDialog />
 <ShortcutsDialog />
 <ContextMenu />
 <Toasts />

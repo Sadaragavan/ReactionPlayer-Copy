@@ -28,7 +28,8 @@ import type { ID, SessionVideo } from '../types';
 import { copyCanvasToClipboard } from '../utils/file';
 import { clamp } from '../utils/geometry';
 import { canvasRatio, captureFrame, composeStage, type StageLayer } from './capture';
-import { clampLocal, frameCentre, frameIndexAt, isActive, planCorrection, timelineRange } from './timeline';
+import { sourceIndexAt, sourceRange } from './playlist';
+import { clampLocal, frameCentre, frameIndexAt, isActive, planCorrection, timelineRange, type TimelineVideo } from './timeline';
 import { type FrameMeta, Track } from './track';
 
 const noop = () => {};
@@ -63,7 +64,15 @@ class PlaybackEngine {
   /* ── read side ── */
 
   get range() {
-    return timelineRange(session.current?.videos ?? []);
+    return timelineRange(this.timelineVideos());
+  }
+
+  /** The videos as the timeline sees them: a source playlist counts for the whole stretch it covers, not just the current episode. */
+  timelineVideos(): TimelineVideo[] {
+    return (session.current?.videos ?? []).map((v) => {
+      const span = v.sources ? sourceRange(session.spansOf(v)) : null;
+      return span ? { ...v, span } : v;
+    });
   }
   get anyRunning(): boolean {
     const s = session.current;
@@ -223,10 +232,17 @@ class PlaybackEngine {
     this.#scheduleThumb();
   }
 
-  /** ← / → : jump by seconds while playing, by a frame while paused. */
-  skip(seconds: number): void {
+  /**
+   * ← / → : jump by seconds while playing, by a frame while paused. Unlinked, `id` limits it to one clip
+   * (the active one); without it every clip moves.
+   */
+  skip(seconds: number, id?: ID): void {
     const s = session.current;
     if (!s) return;
+    if (!s.isLinked && id) {
+      if (!this.running[id]) return void this.step(Math.sign(seconds), id);
+      return this.seekVideo(id, (this.element(id)?.currentTime ?? 0) + seconds);
+    }
     if (!this.anyRunning) return void this.step(Math.sign(seconds));
     if (s.isLinked) return this.seek(this.clock + seconds);
     for (const v of s.videos) this.seekVideo(v.id, (this.element(v.id)?.currentTime ?? 0) + seconds);
@@ -405,9 +421,53 @@ class PlaybackEngine {
     const { el, id } = t;
     this.running[id] = !el.paused && !el.ended;
     if (el.error) this.failed[id] = true;
+    // Unlinked: when an episode ends the next one takes its place at once, on its first frame, and waits for the user to play it.
+    if (el.ended && session.current && !session.current.isLinked) this.#nextSourceAfterEnd(id);
     if (id === session.current?.masterId) this.buffering = !el.paused && el.readyState < 3 && !el.seeking;
     if (this.anyRunning) this.#loop();
     this.#tick();
+  }
+
+  #nextSourceAfterEnd(id: ID): void {
+    const v = session.video(id);
+    if (!v?.sources) return;
+    const next = (v.sourceIndex ?? 0) + 1;
+    if (next < v.sources.length) {
+      session.activateSource(next);
+      // The new episode is not playing, whatever the one before was doing.
+      this.running[id] = false;
+    }
+  }
+
+  /**
+   * Linked: shows the episode the clock is in. The next one replaces the previous the moment it ends and sits on its
+   * first frame, not playing, until its own start time (or until the user starts it).
+   */
+  #followPlaylist(): void {
+    const v = session.sourceVideo;
+    if (!v?.sources) return;
+    const index = sourceIndexAt(session.spansOf(v), this.clock);
+    if (index !== (v.sourceIndex ?? 0)) {
+      session.activateSource(index);
+      if (v.waiting) this.running[v.id] = false;
+      const tr = this.#tracks.get(v.id);
+      if (tr) tr.correcting = false;
+    }
+  }
+
+  /** Starts the waiting episode now, at the current point of the timeline. Unlinked there is no timeline: it simply plays. */
+  startNextSource(): boolean {
+    const v = session.sourceVideo;
+    const s = session.current;
+    if (!v?.sources || !s) return false;
+    if (!s.isLinked) {
+      this.toggleVideo(v.id);
+      return true;
+    }
+    if (!session.startSource(this.clock)) return false;
+    this.refresh();
+    if (!this.playing) void this.play();
+    return true;
   }
 
   #syncRunning(): void {
@@ -465,6 +525,7 @@ class PlaybackEngine {
     const s = session.current;
     if (!s?.isLinked) return;
     const tolerance = settings.playback.syncToleranceMs;
+    this.#followPlaylist();
     this.#updateLent();
     for (const v of s.videos) {
       const tr = this.#tracks.get(v.id);

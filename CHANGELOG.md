@@ -5,6 +5,23 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Added: several sources, and the keyboard follows the clip
+
+- **Source playlist.** A reactor reacting to several episodes can add more sources. They play in the source layer, one after another, and
+  the reaction keeps the clock. When an episode ends the next one is swapped in at once, on its first frame, and does **not** play. It waits
+  until you start it (`N`, the **Start it** bar, or the play button in the playlist), so the break between episodes is as long as the reactor's.
+  An episode can instead start by itself after a set break.
+- **Sources panel** in the Layers panel: drag episodes or use the arrows to change the order, set each break, remove an episode, jump to one.
+- **Add a source** from the Layers panel, the source layer's right-click menu, the New Session dialog (**Add another source**), or the prompt below.
+- **A prompt appears when the reaction runs longer than the source** (by more than 5 s): "Play another source?".
+- **Unlinked, the shortcuts act on the active clip** (the last layer you clicked or selected, drawn with a dotted outline) instead of the whole frame:
+  `Space`, `←` `→`, `,` `.` and `M`. Linked, they still act on everything.
+- Playlists are saved with the session and in exported layout files.
+
+### Changed: Home menu
+
+- The hovered menu word glows, and its underline draws in across the whole word and fades out when the pointer leaves. It no longer follows the pointer.
+
 ### Changed: a native desktop app
 
 - Reaction Player is now an **Electron** app (electron-vite and electron-builder) for Arch Linux and Wayland first, then

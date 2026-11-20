@@ -18,6 +18,7 @@
   import { Hud } from '$lib/components/session/hud.svelte';
   import LayersPanel from '$lib/components/session/LayersPanel.svelte';
   import { PANEL_W, TOP_H, dockHeight, laneCount } from '$lib/components/session/metrics';
+  import SourcePrompt from '$lib/components/session/SourcePrompt.svelte';
   import TopBar from '$lib/components/session/TopBar.svelte';
   import Transport from '$lib/components/session/Transport.svelte';
   import { playback } from '$lib/engine/playback.svelte';
@@ -104,7 +105,7 @@
   function onkeydown(e: KeyboardEvent) {
     hud.poke();
     if (!s || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (typing(e.target) || ui.menu || ui.shortcutsOpen || ui.newSessionOpen) return;
+    if (typing(e.target) || ui.menu || ui.shortcutsOpen || ui.newSessionOpen || ui.addSourceOpen) return;
 
     // [ and ] reorder the selected layer; Shift goes all the way. The physical key is used so every keyboard layout works.
     if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
@@ -117,14 +118,20 @@
 
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const step = settings.playback.seekStepSec;
-    const master = session.master;
+    // Linked, the shortcuts act on the whole frame. Unlinked, they act on the active clip (the last one clicked or selected).
+    const clip = s.isLinked ? null : (session.activeVideo?.id ?? null);
 
     switch (key) {
       case ' ':
-        playback.toggle();
+        if (clip) playback.toggleVideo(clip);
+        else playback.toggle();
         break;
       case 'l':
         playback.setLinked(!s.isLinked);
+        break;
+      case 'n':
+        // The next source is on its first frame, waiting: start it.
+        if (!playback.startNextSource()) return;
         break;
       case 't':
         session.setTheater(!s.isTheaterMode);
@@ -132,24 +139,27 @@
       case 'f':
         void toggleFullscreen();
         break;
-      case 'm':
-        if (master) session.toggleMute(master.id);
+      case 'm': {
+        const target = clip ?? session.master?.id;
+        if (target) session.toggleMute(target);
         break;
+      }
       case 'p':
         togglePanel();
         break;
       case ',':
-        void playback.step(-1);
+        void playback.step(-1, clip ?? undefined);
         break;
       case '.':
-        void playback.step(1);
+        void playback.step(1, clip ?? undefined);
         break;
       case 'ArrowLeft':
       case 'ArrowRight': {
         const dir = key === 'ArrowLeft' ? -1 : 1;
-        // One frame while paused; Shift always makes the full jump.
-        if (!playback.anyRunning && !e.shiftKey) void playback.step(dir);
-        else playback.skip(dir * step);
+        // One frame while paused (the active clip's own state when unlinked); Shift always makes the full jump.
+        const moving = clip ? !!playback.running[clip] : playback.anyRunning;
+        if (!moving && !e.shiftKey) void playback.step(dir, clip ?? undefined);
+        else playback.skip(dir * step, clip ?? undefined);
         break;
       }
       case 'Escape':
@@ -191,6 +201,8 @@
       onhover={(on) => hud.hover(on)}
       onhome={leave}
     />
+
+    <SourcePrompt top={(hud.visible ? TOP_H : 0) + 10} />
 
     <LayersPanel
       open={panelOpen && !theater}

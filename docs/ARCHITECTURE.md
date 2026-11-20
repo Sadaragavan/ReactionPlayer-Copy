@@ -150,6 +150,18 @@ and picture extensions. On open, `restoreSessionMedia` checks that each path sti
 In a browser the registry keeps blob URLs and File System Access handles instead. The sample clips use a `demo:source` /
 `demo:reaction` scheme (`engine/demo.ts`), so saved demo sessions survive a rebuild that changes the hashed asset names.
 
+## Source playlists
+
+A reactor may react to several episodes, so the source layer can hold a playlist (`SessionVideo.sources`, `sourceIndex`, `firstOffsetMs`).
+`engine/playlist.ts` places the episodes on the timeline: the first where `firstOffsetMs` puts it, each later one after the previous ends plus
+its `gapMs`, or not at all (`gapMs: null`) until the user starts it. The layer mirrors the current episode's fields (`mirrorCurrentItem`), so
+the sync engine still sees one video per layer; a `waiting` layer is inactive and parked on its first frame (`timeline.ts`). The reaction keeps
+the clock (a playlist cannot be the master). Linked, `playback.#followPlaylist` swaps the episode by the clock (`sourceIndexAt`), the moment
+the previous one ends; unlinked, an `ended` event does. `startNextSource` turns "now" into the episode's break. `timelineVideos()` gives the
+whole playlist's stretch to `timelineRange`. `SourcePrompt` asks to start a waiting episode, or to add one when the reaction outlasts the source.
+
+Unlinked, the keyboard acts on `session.activeVideo` (the last clicked or selected layer); linked it acts on the whole frame.
+
 ## The desktop shell (`electron/`)
 
 - `main.ts` sets the Chromium switches before `ready` (on Linux: `ozone-platform-hint=auto`, VA-API decode features, Wayland window

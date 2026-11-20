@@ -12,12 +12,14 @@ import { LS_LAST_SESSION, MAX_VIDEOS } from '../constants';
 import { usesDemoClips, warmDemoClips } from '../engine/demo';
 import { parseConfig } from '../engine/importConfig';
 import { buildLayout, slotsToCoordinates } from '../engine/layouts';
-import { type FsFileHandle, type PickedFile, fileFor, forget, registerFile, restoreSessionMedia } from '../engine/media';
+import { type FsFileHandle, type PickedFile, aliasMedia, fileFor, forget, mediaItems, registerFile, restoreSessionMedia } from '../engine/media';
+import { gapForStart, mirrorCurrentItem, sourceSpans, type Span } from '../engine/playlist';
 import { migrateSession } from '../engine/migrate';
 import { type NewSessionInput, buildSession, cloneSession, exportConfig } from '../engine/sessionFactory';
 import { offsetsFromLocals, rebaseOffsets } from '../engine/timeline';
 import { type ZOp, reorder, canReorder, zFromTopFirst } from '../engine/zorder';
-import type { ID, LayerTransform, LayoutType, Preset, Session, SessionVideo } from '../types';
+import type { ID, LayerTransform, LayoutType, Preset, Session, SessionVideo, SourceItem } from '../types';
+import { uid } from '../utils/format';
 import { saveJSON, slugify, type SaveOutcome } from '../utils/file';
 import { idbDelete, idbGet, idbGetAll, idbPut, lsGet, lsRemove, lsSet } from './persistence';
 import { ui } from './ui.svelte';
@@ -31,6 +33,11 @@ class SessionStore {
   lastId = $state<ID | null>(null);
   /** The layer the user last touched (transient). */
   selectedId = $state<ID | null>(null);
+  /**
+   * The clip the keyboard acts on while the timelines are unlinked: the last layer that was clicked or selected.
+   * Linked, the shortcuts act on the whole frame and this is ignored.
+   */
+  activeId = $state<ID | null>(null);
   /** Local-file videos in the open session that still need a file. */
   missing = $state<ID[]>([]);
   ready = $state(false);
@@ -72,6 +79,7 @@ class SessionStore {
     for (const f of files) registerFile(f.id, f.picked);
     this.current = session;
     this.selectedId = null;
+    this.activeId = null;
     this.missing = [];
     this.#remember(session.id);
     void this.save();
@@ -88,6 +96,7 @@ class SessionStore {
     if (usesDemoClips(s)) await warmDemoClips();
     this.current = s;
     this.selectedId = null;
+    this.activeId = null;
     this.#remember(id);
     this.missing = await restoreSessionMedia(s);
     return true;
@@ -126,6 +135,7 @@ class SessionStore {
     await this.save();
     this.current = null;
     this.selectedId = null;
+    this.activeId = null;
     this.missing = [];
   }
 
@@ -137,7 +147,7 @@ class SessionStore {
     const { session, idMap } = cloneSession(clone(src));
     for (const [oldId, newId] of Object.entries(idMap)) {
       const file = fileFor(oldId);
-      const path = this.video(oldId)?.filePath ?? this.saved.flatMap((x) => x.videos).find((v) => v.id === oldId)?.filePath;
+      const path = mediaItems(src).find((m) => m.id === oldId)?.filePath;
       if (file || path) registerFile(newId, { file, path, name: file?.name ?? '', size: file?.size ?? 0 });
       else {
         const handle = await idbGet<FsFileHandle>('handles', oldId);
@@ -153,7 +163,7 @@ class SessionStore {
     const target = this.saved.find((s) => s.id === id) ?? (this.current?.id === id ? this.current : undefined);
     this.saved = this.saved.filter((s) => s.id !== id);
     await idbDelete('sessions', id);
-    if (target) forget(target.videos.map((v) => v.id));
+    if (target) forget(mediaItems(target).map((v) => v.id));
     if (this.current?.id === id) {
       this.#clearTimer();
       this.current = null;
@@ -211,7 +221,155 @@ class SessionStore {
 
   setDuration(id: ID, duration: number): void {
     const v = this.video(id);
-    if (v && Number.isFinite(duration) && Math.abs(v.duration - duration) > 0.001) v.duration = duration;
+    if (!v || !Number.isFinite(duration) || Math.abs(v.duration - duration) <= 0.001) return;
+    const item = v.sources?.[v.sourceIndex ?? 0];
+    if (item) {
+      item.duration = duration;
+      this.#mirror(v);
+    } else v.duration = duration;
+  }
+
+  /* ── source playlist ── */
+
+  /** The source layer: the one a playlist lives in. */
+  get sourceVideo(): SessionVideo | undefined {
+    return this.current?.videos.find((v) => v.role === 'source');
+  }
+
+  /** Where each item of a playlist sits on the timeline. */
+  spansOf(v: SessionVideo): Span[] {
+    return v.sources ? sourceSpans(v.sources, v.firstOffsetMs ?? 0) : [];
+  }
+
+  /** The id under which a layer's media is registered: the current playlist item's, else the layer's own. */
+  mediaIdOf(v: Pick<SessionVideo, 'id' | 'sources' | 'sourceIndex'>): ID {
+    return v.sources?.[v.sourceIndex ?? 0]?.id ?? v.id;
+  }
+
+  #mirror(v: SessionVideo): void {
+    mirrorCurrentItem(v);
+  }
+
+  /** Two or more sources play in one layer, and a playlist needs a clock that does not restart: the reaction takes it. */
+  #ensureSteadyMaster(source: SessionVideo): void {
+    const s = this.current;
+    if (!s || s.masterId !== source.id) return;
+    const other = s.videos.find((v) => v.role === 'reaction') ?? s.videos.find((v) => v.id !== source.id);
+    if (other) this.setMaster(other.id);
+  }
+
+  /** Adds an episode to the end of the source playlist (making one if the source was alone). Returns its id. */
+  addSource(input: { title: string; kind: SourceItem['kind']; url: string; duration?: number; picked?: PickedFile; fileName?: string; fileSize?: number; filePath?: string }): ID | null {
+    const v = this.sourceVideo;
+    if (!v) return null;
+    if (!v.sources) {
+      v.sources = [{ id: v.id, title: v.title, kind: v.kind, url: v.url, filePath: v.filePath, fileName: v.fileName, fileSize: v.fileSize, duration: v.duration, gapMs: null }];
+      v.sourceIndex = 0;
+      v.firstOffsetMs = v.offsetMs;
+    }
+    const id = uid('vid');
+    if (input.picked) registerFile(id, input.picked);
+    v.sources.push({
+      id,
+      title: input.title,
+      kind: input.kind,
+      url: input.kind === 'file' ? '' : input.url,
+      filePath: input.picked?.path ?? input.filePath,
+      fileName: input.picked?.name ?? input.fileName,
+      fileSize: input.picked?.size ?? input.fileSize,
+      duration: input.duration ?? 0,
+      gapMs: null
+    });
+    this.#ensureSteadyMaster(v);
+    this.#mirror(v);
+    this.schedule();
+    return id;
+  }
+
+  removeSource(itemId: ID): void {
+    const v = this.sourceVideo;
+    if (!v?.sources || !v.sources.some((x) => x.id === itemId)) return;
+    const was = v.sources[v.sourceIndex ?? 0]?.id;
+    v.sources = v.sources.filter((x) => x.id !== itemId);
+    if (v.sources.length === 1) {
+      // Back to a single source: it takes over the layer, with its media kept under the layer's own id.
+      const [only] = v.sources;
+      if (only.id !== v.id) aliasMedia(only.id, v.id);
+      const offset = v.firstOffsetMs ?? 0;
+      v.sources = undefined;
+      v.sourceIndex = undefined;
+      v.firstOffsetMs = undefined;
+      v.waiting = false;
+      Object.assign(v, { title: only.title, kind: only.kind, url: only.url, filePath: only.filePath, fileName: only.fileName, fileSize: only.fileSize, duration: only.duration, offsetMs: offset });
+    } else {
+      v.sourceIndex = Math.max(0, v.sources.findIndex((x) => x.id === was));
+      this.#mirror(v);
+    }
+    // The first episode shares the layer's id, which stays in use; any other episode's media can go.
+    if (itemId !== v.id) forget([itemId]);
+    this.schedule();
+  }
+
+  /** Drag and drop in the playlist: moves an episode to `toIndex`. The one on screen stays on screen. */
+  moveSource(itemId: ID, toIndex: number): void {
+    const v = this.sourceVideo;
+    if (!v?.sources) return;
+    const was = v.sources[v.sourceIndex ?? 0]?.id;
+    const moving = v.sources.find((x) => x.id === itemId);
+    if (!moving) return;
+    const list = v.sources.filter((x) => x.id !== itemId);
+    list.splice(Math.max(0, Math.min(list.length, toIndex)), 0, moving);
+    v.sources = list;
+    v.sourceIndex = Math.max(0, list.findIndex((x) => x.id === was));
+    this.#mirror(v);
+    this.schedule();
+  }
+
+  /** The break before an episode in ms, or null to make it wait until it is started by hand. */
+  setSourceGap(itemId: ID, gapMs: number | null): void {
+    const v = this.sourceVideo;
+    const item = v?.sources?.find((x) => x.id === itemId);
+    if (!v || !item) return;
+    item.gapMs = gapMs === null ? null : Math.max(0, Math.round(gapMs));
+    this.#mirror(v);
+    this.schedule();
+  }
+
+  /** Shows playlist item `index` in the layer. Used by the engine when the previous one ends, and by clicking an episode. */
+  activateSource(index: number): void {
+    const v = this.sourceVideo;
+    if (!v?.sources || index === v.sourceIndex || index < 0 || index >= v.sources.length) return;
+    v.sourceIndex = index;
+    v.currentTime = 0; // the new episode starts from its first frame
+    this.#mirror(v);
+    this.schedule();
+  }
+
+  /** Starts the waiting episode at timeline time `clock`: the time it waited becomes its break. False when there is nothing to start. */
+  startSource(clock: number): boolean {
+    const v = this.sourceVideo;
+    if (!v?.sources || !v.waiting) return false;
+    const i = v.sourceIndex ?? 0;
+    const gap = gapForStart(this.spansOf(v), i, clock);
+    if (gap === null) return false;
+    v.sources[i].gapMs = gap;
+    this.#mirror(v);
+    this.schedule();
+    return true;
+  }
+
+  /** Writes an offset onto a layer. For a playlist, the first episode moves the whole chain and a later one changes its break. */
+  #writeOffset(v: SessionVideo, ms: number): void {
+    const rounded = Math.round(ms);
+    if (!v.sources) {
+      v.offsetMs = rounded;
+      return;
+    }
+    if (v.waiting) return;
+    const i = v.sourceIndex ?? 0;
+    if (i === 0) v.firstOffsetMs = rounded;
+    else v.sources[i].gapMs = Math.max(0, (v.sources[i].gapMs ?? 0) - (rounded - v.offsetMs));
+    this.#mirror(v);
   }
 
   /** Called by the engine; saves lazily so playback never thrashes storage. */
@@ -246,7 +404,10 @@ class SessionStore {
 
   setOffset(id: ID, ms: number): void {
     if (id === this.current?.masterId) return;
-    this.updateVideo(id, { offsetMs: Math.round(ms) });
+    const v = this.video(id);
+    if (!v) return;
+    this.#writeOffset(v, ms);
+    this.schedule();
   }
 
   nudgeOffset(id: ID, deltaMs: number): void {
@@ -260,8 +421,14 @@ class SessionStore {
     if (!s || s.masterId === id) return;
     const offsets = rebaseOffsets(s.videos, id);
     for (const v of s.videos) {
+      const shift = offsets[v.id] - v.offsetMs;
       v.offsetMs = offsets[v.id];
       v.muted = v.id !== id;
+      // A playlist moves as one: its first episode takes the same shift.
+      if (v.sources) {
+        v.firstOffsetMs = (v.firstOffsetMs ?? 0) + shift;
+        this.#mirror(v);
+      }
     }
     s.masterId = id;
     this.schedule();
@@ -273,7 +440,7 @@ class SessionStore {
     if (!s) return;
     if (on && locals) {
       const offsets = offsetsFromLocals(s.masterId, locals, s.videos.map((v) => v.id));
-      for (const v of s.videos) v.offsetMs = offsets[v.id];
+      for (const v of s.videos) this.#writeOffset(v, offsets[v.id]);
     }
     s.isLinked = on;
     if (on) for (const v of s.videos) v.playbackRate = s.videos.find((m) => m.id === s.masterId)?.playbackRate ?? 1;
@@ -282,10 +449,18 @@ class SessionStore {
 
   /** A local file for a layer that had none (after a reload, or a fresh pick). */
   relink(id: ID, picked: PickedFile): void {
-    const saved = this.video(id);
+    // `id` names media: a layer's, or one episode of a source playlist.
+    const owner = this.current?.videos.find((v) => v.id === id || v.sources?.some((x) => x.id === id));
+    const saved = owner?.sources?.find((x) => x.id === id) ?? owner;
     const differs = !!saved?.fileName && (saved.fileName !== picked.name || (!!saved.fileSize && saved.fileSize !== picked.size));
     registerFile(id, picked);
-    this.updateVideo(id, { kind: 'file', fileName: picked.name, fileSize: picked.size, filePath: picked.path });
+    const patch = { kind: 'file' as const, fileName: picked.name, fileSize: picked.size, filePath: picked.path };
+    if (owner?.sources) {
+      const item = owner.sources.find((x) => x.id === id);
+      if (item) Object.assign(item, patch);
+      this.#mirror(owner);
+      this.schedule();
+    } else this.updateVideo(id, patch);
     this.missing = this.missing.filter((m) => m !== id);
     if (differs) ui.toast(`“${picked.name}” is not the file saved with this layer (“${saved?.fileName}”). Check that it lines up.`, 'info');
   }
@@ -294,6 +469,17 @@ class SessionStore {
 
   select(id: ID | null): void {
     this.selectedId = id;
+    if (id) this.activeId = id;
+  }
+
+  /** Makes a layer the clip the keyboard acts on (while unlinked) without selecting it. */
+  activate(id: ID): void {
+    this.activeId = id;
+  }
+
+  /** The clip the unlinked shortcuts act on: the active layer, else the master. */
+  get activeVideo(): SessionVideo | null {
+    return (this.activeId ? this.video(this.activeId) : undefined) ?? this.master;
   }
 
   setLayer(id: ID, patch: Partial<LayerTransform>): void {

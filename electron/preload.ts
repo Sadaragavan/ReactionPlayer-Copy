@@ -37,6 +37,16 @@ const api: ElectronAPI = {
   copyImage: (dataUrl) => invoke('rp:copy-image', dataUrl),
   revealDataFolder: () => invoke('rp:reveal-data'),
 
+  proxy: {
+    prepareAudio: (path, index) => invoke('rp:proxy:audio', path, index),
+    onProgress(listener) {
+      const handler = (_e: Electron.IpcRendererEvent, e: { path: string; index: number; fraction: number }) => listener(e);
+      ipcRenderer.on('rp:proxy-progress', handler);
+      return () => ipcRenderer.removeListener('rp:proxy-progress', handler);
+    }
+  },
+  gpuStatus: () => invoke('rp:gpu'),
+
   subtitles: {
     probe: (path) => invoke('rp:sub:probe', path),
     extract: (path, track) => invoke('rp:sub:extract', path, track),

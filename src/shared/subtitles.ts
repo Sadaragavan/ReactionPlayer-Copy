@@ -4,12 +4,25 @@
  * Styling beyond italics and top/middle/bottom placement is dropped on purpose; the player draws the text itself.
  */
 
+/** A picture drawn for a picture-based subtitle (PGS), placed in a frame of the composition's size. */
+export interface CueImage {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** A PNG data URL. */
+  src: string;
+}
+
 export interface Cue {
   /** Seconds. */
   start: number;
   end: number;
-  /** The text, lines separated by `\n`, with no markup. */
+  /** The text, lines separated by `\n`, with no markup. Empty for a picture cue. */
   text: string;
+  /** Picture-based subtitles: the bitmaps, and the size of the picture they were authored for. */
+  images?: CueImage[];
+  frame?: { w: number; h: number };
   /** Whole-cue italics. */
   italic?: boolean;
   /** Where it sits (default bottom). */

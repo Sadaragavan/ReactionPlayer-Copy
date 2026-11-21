@@ -76,9 +76,11 @@ any distribution: `chmod +x reaction-player-*.AppImage && ./reaction-player-*.Ap
   episode ends, the next one is swapped in at once on its first frame and **waits**: press `N` (or **Start it**) when the reactor starts
   it, or give it an automatic break in the playlist. Drag episodes in the playlist to reorder them. If the reaction runs longer than the
   source, the player asks whether to add another source.
+- **Sound from any file.** AC-3, E-AC-3, DTS and TrueHD audio (common in movie and anime rips) cannot be decoded by Chromium, so the player converts that track
+  to AAC with the bundled ffmpeg the first time it is needed ("Preparing audio…", a few seconds to a minute) and keeps it in the data folder's `cache/audio`.
 - **Audio tracks and subtitles.** Right-click a layer → **Audio track** to pick among a file's audio tracks (languages, commentary), and
   **Subtitles** to show a text track stored in the video (MKV, WebM, MP4), a subtitle file next to it, or any `.srt`, `.vtt`, `.ass` or `.ssa` you load.
-  Subtitles can be shifted in time. Picture-based subtitles (PGS, VobSub) cannot be shown.
+  Subtitles can be shifted in time. Picture-based PGS subtitles (Blu-ray rips) are shown too; VobSub (DVD) and DVB are not.
 - **Videos of different lengths.** The timeline is the union of all footage. A video that has not started yet, or
   has ended, waits on its first or last frame while the others play, and playback stops when every video has ended.
 - **Copy frame** (right-click a layer) puts that video's current picture, with its crop, on the system clipboard through
@@ -133,6 +135,14 @@ In the alignment studio `,` `.` step the sampled video, `C` captures the frame, 
 `npm run dev:web` runs the same interface without Electron, with browser fallbacks: IndexedDB and LocalStorage for storage,
 `<input type="file">` and the File System Access API for videos (blob URLs, so local files need **Choose file** after a
 reload), the browser clipboard, and downloads. It exists for testing the UI; the desktop app is the product.
+
+## Video that will not play
+
+Chromium decodes H.264, VP8, VP9, AV1 and (through the graphics chip, when the system supports it) HEVC. Preferences → Playback → "Video decoding" says
+whether the graphics chip or the processor is decoding. On Windows, HEVC/H.265 files need "HEVC Video Extensions" from the Microsoft Store and a graphics chip
+that supports it; otherwise use an H.264 copy. Two 1080p videos decoded by the processor alone can stutter on a thin laptop: update the graphics driver first.
+
+ffmpeg comes from the `@ffmpeg-installer/ffmpeg` package, a GPL build, so the installers are larger by about 70 MB and carry its licence.
 
 ## Project layout
 

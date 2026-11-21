@@ -6,43 +6,25 @@
  * (`electron/tracks.ts`), because Chromium exposes neither. Browser: only subtitle files picked by hand.
  */
 import { cuesAt, parseSubtitleFile, SUBTITLE_EXTENSIONS, type Cue } from '../../shared/subtitles';
-import type { SubtitleTrackInfo } from '../../shared/api';
 import { desktop } from '../platform';
+import { mediaTracks } from './mediaTracks.svelte';
 import { session } from '../stores/session.svelte';
 import { ui } from '../stores/ui.svelte';
 import type { ID, SessionVideo, SubtitleSetting } from '../types';
 import { pickFiles } from '../utils/file';
 
-/** What is stored in (or beside) one video file. */
-export interface TrackProbe {
-  subtitles: SubtitleTrackInfo[];
-  sidecars: { path: string; name: string }[];
-}
-
 class SubtitleStore {
-  /** The cues each layer is showing, by layer id. */
-  cues = $state<Record<ID, Cue[]>>({});
-  /** Subtitle tracks and subtitle files found for each piece of media, by media id. */
-  probes = $state<Record<ID, TrackProbe>>({});
+  /** The cues each layer is showing, by layer id. Raw: a picture subtitle stream holds thousands of cues with embedded images. */
+  cues = $state.raw<Record<ID, Cue[]>>({});
 
   /** Which setting each layer's cues were loaded for, so an unchanged layer is not read again. */
   #loaded = new Map<ID, string>();
   /** Subtitle files picked in a browser (no path to read again), by name. */
   #picked = new Map<string, Cue[]>();
-  #probing = new Set<string>();
 
-  /** Finds the subtitle tracks and files for a video. Cheap to call again; each file is read once. */
-  async prefetch(mediaId: ID, path: string | undefined): Promise<void> {
-    if (!desktop || !path) return;
-    const key = `${mediaId}|${path}`;
-    if (this.#probing.has(key)) return;
-    this.#probing.add(key);
-    try {
-      const info = await desktop.subtitles.probe(path);
-      this.probes[mediaId] = { subtitles: info.subtitles, sidecars: info.sidecars };
-    } catch {
-      /* no tracks listed: the menu offers only subtitle files */
-    }
+  /** What is stored in (or beside) a video, for the menu. */
+  probeOf(mediaId: ID) {
+    return mediaTracks.probes[mediaId];
   }
 
   /** Loads (or clears) a layer's cues to match its subtitle setting. */
@@ -52,7 +34,8 @@ class SubtitleStore {
     if (this.#loaded.get(layer.id) === key) return;
     this.#loaded.set(layer.id, key);
     if (!s) {
-      delete this.cues[layer.id];
+      const { [layer.id]: _gone, ...rest } = this.cues;
+      this.cues = rest;
       return;
     }
     let cues: Cue[] = [];
@@ -67,7 +50,7 @@ class SubtitleStore {
     }
     // The layer may have moved on to another choice while this was reading.
     if (this.#loaded.get(layer.id) !== key) return;
-    this.cues[layer.id] = cues;
+    this.cues = { ...this.cues, [layer.id]: cues };
     if (!cues.length) ui.toast(`No subtitle text could be read from “${s.label}”.`, 'error');
   }
 

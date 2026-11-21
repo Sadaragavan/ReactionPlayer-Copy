@@ -270,7 +270,7 @@ export class Storage {
   async clearAll(): Promise<void> {
     await this.idle();
     await Promise.all(
-      ['settings.json', 'presets.json', 'sessions', 'thumbnails', 'wallpapers'].map((n) => rm(this.#p(n), { recursive: true, force: true }))
+      ['settings.json', 'presets.json', 'sessions', 'thumbnails', 'wallpapers', 'cache'].map((n) => rm(this.#p(n), { recursive: true, force: true }))
     );
   }
 }

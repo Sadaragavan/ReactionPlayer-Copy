@@ -160,6 +160,17 @@ media data). `src/shared/subtitles.ts` parses `.srt`, `.vtt` and `.ass` files an
 cues and the probe results; `Layer` loads them for `SessionVideo.subtitle` and `SubtitleOverlay` draws them. Both choices are saved per video
 (and per playlist episode, mirrored like the other fields).
 
+## Audio Chromium cannot decode
+
+`electron/tracks.ts` marks each audio track `playable` (false for AC-3, E-AC-3, DTS, TrueHD, in MKV and MP4). `playback.refreshAudio(id)` runs after a video loads and
+after the audio choice changes: a playable track is enabled in `video.audioTracks` (Chromium lists only the tracks it can decode, so the index is the count of playable
+tracks before it); an unplayable one is converted by `electron/proxy.ts` (`ffmpeg -map 0:a:N -c:a aac`, cached in `cache/audio`, progress over IPC) and played by
+`engine/sidecar.ts`, a hidden `Audio` element that follows the video's play, pause, seeks, rate and volume and corrects drift over 0.12 s. The window uses
+`autoplayPolicy: 'no-user-gesture-required'` so the extra element is never blocked. The ffmpeg binary is unpacked from the asar archive (`asarUnpack`).
+
+PGS subtitles: `electron/pgs.ts` decodes the display sets (palette, run-length bitmaps, composition) into indexed PNGs; `SubtitleOverlay` places them on the video's picture.
+`tracks.ts` undoes Matroska `ContentCompression` (zlib or stripped headers) before handing blocks to a decoder.
+
 ## Source playlists
 
 A reactor may react to several episodes, so the source layer can hold a playlist (`SessionVideo.sources`, `sourceIndex`, `firstOffsetMs`).

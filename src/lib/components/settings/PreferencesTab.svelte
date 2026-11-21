@@ -5,6 +5,7 @@
    * is no Save button; the player reads the same values live.
    */
   import { FolderOpen, Keyboard, RotateCcw, Trash } from '@lucide/svelte';
+  import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
   import NumberField from '$lib/components/ui/NumberField.svelte';
@@ -37,6 +38,12 @@
     { value: 'grid', label: 'Stacked' },
     { value: 'pip', label: 'Corner' }
   ];
+  let gpu = $state<{ videoDecode: string; rasterization: string; renderer: string } | null>(null);
+  const hardwareDecode = $derived(!!gpu && gpu.videoDecode.startsWith('enabled'));
+  onMount(() => {
+    void desktop?.gpuStatus().then((g) => (gpu = g)).catch(() => undefined);
+  });
+
   const SEEK = [1, 2, 5, 10, 30].map((s) => ({ value: s, label: `${s} s` }));
   const HIDE = [
     { value: 1500, label: '1.5 s' },
@@ -107,11 +114,30 @@
   >
     <Segmented label="Hardware acceleration" options={ACCEL} value={p.hardwareAcceleration} onchange={(v) => settings.patchPlayback({ hardwareAcceleration: v })} />
   </SettingRow>
+
+  {#if gpu}
+    <SettingRow
+      title="Video decoding"
+      hint={hardwareDecode
+        ? 'The graphics chip decodes video, which leaves the processor free for the sync engine.'
+        : 'The processor is decoding video. Two videos at once can stutter on a laptop; updating the graphics driver usually turns hardware decoding on.'}
+    >
+      <span class="text-[13px] {hardwareDecode ? 'text-fg-2' : 'text-accent'}">{hardwareDecode ? 'Hardware' : 'Software'}{gpu.renderer ? ` · ${gpu.renderer}` : ''}</span>
+    </SettingRow>
+  {/if}
 </Section>
 
 <Section title="Playback" intro="What a new session starts with.">
   <SettingRow title="Start linked" hint="One shared timeline for every video. Unlink to line each one up on its own.">
     <Switch label="Start new sessions linked" checked={p.autoLink} onchange={(v) => settings.patchPlayback({ autoLink: v })} />
+  </SettingRow>
+
+  <SettingRow title="Mute the other videos" hint="Off: every video is heard, the reaction as well as the source. On: new sessions play only the master's audio (change it any time from a layer's menu).">
+    <Switch label="Mute every video but the master in new sessions" checked={p.muteOthers} onchange={(v) => settings.patchPlayback({ muteOthers: v })} />
+  </SettingRow>
+
+  <SettingRow title="Ask about another source" hint="When the reaction runs longer than the source by more than this, the player asks whether to add another source. 0 turns the question off.">
+    <NumberField class="w-24" caption="min" label="Minutes past the source before asking" value={p.sourcePromptMinutes} min={0} max={600} step={1} digits={0} onchange={(v) => settings.patchPlayback({ sourcePromptMinutes: Math.round(v) })} />
   </SettingRow>
 
   <SettingRow title="Loop" hint="Start over when the shared timeline reaches its end.">

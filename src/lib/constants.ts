@@ -25,7 +25,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     autoLink: true,
     hudAutoHideMs: 2500,
     keepHudWhilePaused: false,
-    loop: false
+    loop: false,
+    muteOthers: false,
+    sourcePromptMinutes: 15
   }
 };
 

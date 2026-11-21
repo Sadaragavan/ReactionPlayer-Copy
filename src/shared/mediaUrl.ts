@@ -12,6 +12,8 @@ const HOST = 'media';
 
 /** Extensions the protocol will serve. Anything else is refused, so the scheme cannot be used to read arbitrary files. */
 export const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mkv', 'webm', 'mov', 'ogv'] as const;
+/** Converted audio (see electron/proxy.ts) is served too. */
+export const AUDIO_EXTENSIONS = ['m4a'] as const;
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif'] as const;
 
 const MIME: Record<string, string> = {
@@ -21,6 +23,7 @@ const MIME: Record<string, string> = {
   webm: 'video/webm',
   mov: 'video/quicktime',
   ogv: 'video/ogg',
+  m4a: 'audio/mp4',
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',

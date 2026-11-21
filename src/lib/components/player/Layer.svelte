@@ -12,6 +12,8 @@
   import { playableUrl } from '$lib/engine/demo';
   import { pickVideoFiles } from '$lib/engine/media';
   import { playback } from '$lib/engine/playback.svelte';
+  import { audioProxy } from '$lib/engine/audioProxy.svelte';
+  import { mediaTracks, videoCodecName } from '$lib/engine/mediaTracks.svelte';
   import { subtitles } from '$lib/engine/subtitles.svelte';
   import { desktop } from '$lib/platform';
   import { session } from '$lib/stores/session.svelte';
@@ -50,6 +52,8 @@
     return playableUrl({ id: session.mediaIdOf(video), kind: video.kind, url: video.url });
   });
   const needsFile = $derived(video.kind === 'file' && !src);
+  const codec = $derived(videoCodecName(mediaTracks.probes[session.mediaIdOf(video)]?.videoCodec));
+  const hevc = $derived(codec.startsWith('HEVC'));
 
   /** Layer box in px, measured by the clip box below. */
   let bw = $state(0);
@@ -61,7 +65,7 @@
 
   // Look for the subtitle tracks stored in this video, and load the cues the layer is set to show.
   $effect(() => {
-    void subtitles.prefetch(session.mediaIdOf(video), video.filePath);
+    void mediaTracks.prefetch(session.mediaIdOf(video), video.filePath);
   });
   $effect(() => {
     void subtitles.sync({ id: video.id, filePath: video.filePath, subtitle: video.subtitle });
@@ -116,7 +120,7 @@
       ></video>
 
       {#if video.subtitle && !needsFile}
-        <SubtitleOverlay layerId={video.id} time={playback.times[video.id] ?? 0} height={bh} delayMs={video.subtitle.delayMs ?? 0} />
+        <SubtitleOverlay layerId={video.id} time={playback.times[video.id] ?? 0} height={bh} delayMs={video.subtitle.delayMs ?? 0} frame={place} />
       {/if}
 
       {#if needsFile}
@@ -130,8 +134,12 @@
         <div class="absolute inset-0 grid place-items-center bg-black p-3 text-center">
           <div class="flex flex-col items-center gap-1.5 text-fg-2">
             <TriangleAlert size={20} strokeWidth={1.6} class="text-danger" />
-            <span class="text-[12.5px]">This file cannot be played here.</span>
-            <span class="text-[11.5px] text-fg-3">MP4 (H.264) and WebM play everywhere.</span>
+            <span class="text-[12.5px]">{hevc ? 'This computer cannot decode HEVC (H.265).' : codec ? `The ${codec} video in this file cannot be decoded here.` : 'This file cannot be played here.'}</span>
+            <span class="text-[11.5px] text-fg-3">
+              {hevc
+                ? 'On Windows, install “HEVC Video Extensions” from the Microsoft Store, or use an H.264 copy of the file.'
+                : 'MP4 (H.264) and WebM play everywhere.'}
+            </span>
           </div>
         </div>
       {/if}
@@ -144,6 +152,13 @@
         <Icon size={12} strokeWidth={2} class={video.role === 'source' ? 'text-accent' : ''} />
         {#if isMaster}<Volume2 size={12} strokeWidth={2} />{/if}
         {#if t.locked}<Lock size={12} strokeWidth={2} />{/if}
+      </div>
+    {/if}
+
+    {#if audioProxy.status[video.id]}
+      {@const st = audioProxy.status[video.id]}
+      <div class="pointer-events-none absolute bottom-1.5 left-1.5 bg-black px-2 py-1 text-[11.5px] text-fg-2">
+        {st.error ? 'No sound: the audio could not be converted' : `Preparing audio… ${Math.round(st.fraction * 100)}%`}
       </div>
     {/if}
 

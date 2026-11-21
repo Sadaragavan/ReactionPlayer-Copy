@@ -130,6 +130,7 @@
       layout: preset ? { preset: $state.snapshot(preset) as Preset } : layout,
       linked,
       masterPolicy: settings.playback.masterAudio,
+      muteOthers: settings.playback.muteOthers,
       canvasAspect: canvas
     });
     close();
@@ -138,7 +139,7 @@
 
   async function demo() {
     await warmDemoClips();
-    session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink));
+    session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink, settings.playback.muteOthers));
     close();
     router.go('session');
   }

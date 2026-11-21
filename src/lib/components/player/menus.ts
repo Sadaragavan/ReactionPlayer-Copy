@@ -30,6 +30,7 @@ import { captureErrorMessage } from '$lib/engine/capture';
 import { playback } from '$lib/engine/playback.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { ui } from '$lib/stores/ui.svelte';
+import { mediaTracks } from '$lib/engine/mediaTracks.svelte';
 import { subtitles } from '$lib/engine/subtitles.svelte';
 import { type ZOp, Z_LABEL } from '$lib/engine/zorder';
 import { trackLabel } from '$lib/utils/format';
@@ -152,32 +153,60 @@ export function videoMenu(id: ID): MenuEntry[] {
       icon: Maximize,
       onSelect: () => session.setLayer(id, { fit: t.fit === 'cover' ? 'contain' : 'cover' })
     },
-    tracks
-      ? {
-          id: 'track',
-          label: 'Audio track',
-          icon: AudioLines,
-          children: Array.from(tracks, (tr, i) => ({
-            id: `track-${i}`,
-            label: trackLabel(tr.label, tr.language, i),
-            checked: (v.audioTrack ?? Array.from(tracks).findIndex((x) => x.enabled)) === i,
-            onSelect: () => {
-              Array.from(tracks).forEach((x, k) => (x.enabled = k === i));
-              session.setTrackChoice(id, { audioTrack: i });
-            }
-          }))
-        }
-      : { id: 'track', label: 'Audio track', icon: AudioLines, hint: 'Single track', disabled: true },
+    audioMenu(id),
     subtitleMenu(id),
     { id: 'mute', label: v.muted ? 'Unmute' : 'Mute', icon: v.muted ? Volume2 : VolumeX, onSelect: () => session.toggleMute(id) }
   ];
+}
+
+/**
+ * The Audio track submenu. The list comes from the file's container, because Chromium hides the tracks it cannot decode
+ * (AC-3, DTS…): those are listed too, and played from a converted copy. Without a container list (a browser) it is Chromium's own.
+ */
+function audioMenu(id: ID): MenuEntry {
+  const v = session.video(id);
+  const found = mediaTracks.probes[session.mediaIdOf(v ?? { id })]?.audio ?? [];
+  if (found.length > 1) {
+    const current = v?.audioTrack !== undefined && found[v.audioTrack] ? v.audioTrack : (found.find((t) => t.isDefault)?.index ?? 0);
+    return {
+      id: 'track',
+      label: 'Audio track',
+      icon: AudioLines,
+      children: found.map((t) => ({
+        id: `track-${t.index}`,
+        label: trackLabel(t.label, t.language, t.index),
+        hint: t.playable ? undefined : 'Converted',
+        checked: current === t.index,
+        onSelect: () => {
+          session.setTrackChoice(id, { audioTrack: t.index });
+          void playback.refreshAudio(id);
+        }
+      }))
+    };
+  }
+  const tracks = audioTracks(id);
+  if (!tracks) return { id: 'track', label: 'Audio track', icon: AudioLines, hint: 'Single track', disabled: true };
+  return {
+    id: 'track',
+    label: 'Audio track',
+    icon: AudioLines,
+    children: Array.from(tracks, (tr, i) => ({
+      id: `track-${i}`,
+      label: trackLabel(tr.label, tr.language, i),
+      checked: (v?.audioTrack ?? Array.from(tracks).findIndex((x) => x.enabled)) === i,
+      onSelect: () => {
+        Array.from(tracks).forEach((x, k) => (x.enabled = k === i));
+        session.setTrackChoice(id, { audioTrack: i });
+      }
+    }))
+  };
 }
 
 /** The Subtitles submenu: off, the tracks stored in the video, subtitle files beside it, and any file. */
 function subtitleMenu(id: ID): MenuEntry {
   const v = session.video(id);
   const current = v?.subtitle;
-  const found = subtitles.probes[session.mediaIdOf(v ?? { id })];
+  const found = subtitles.probeOf(session.mediaIdOf(v ?? { id }));
   const same = (a: typeof current, b: NonNullable<typeof current>) => !!a && a.kind === b.kind && a.track === b.track && a.path === b.path && a.label === b.label;
 
   const entries: MenuEntry[] = [{ id: 'sub-off', label: 'Off', checked: !current, onSelect: () => subtitles.choose(id, null) }];

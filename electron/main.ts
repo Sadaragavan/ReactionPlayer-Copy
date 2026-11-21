@@ -14,10 +14,11 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { PickedPath, SaveOutcome, StoredWallpaper } from '../src/shared/api';
-import { MEDIA_SCHEME, VIDEO_EXTENSIONS, isVideoPath } from '../src/shared/mediaUrl';
+import { MEDIA_SCHEME, VIDEO_EXTENSIONS, isVideoPath, toMediaUrl } from '../src/shared/mediaUrl';
 import { SUBTITLE_EXTENSIONS, isSubtitlePath } from '../src/shared/subtitles';
 import { handleMediaRequest } from './media';
 import { Storage, writeFileAtomic } from './storage';
+import { Proxies } from './proxy';
 import { extractSubtitles, probeTracks } from './tracks';
 
 /* ── 1. Chromium switches ─────────────────────────────────────────────────── */
@@ -32,6 +33,9 @@ function configureChromium(): void {
   if (process.platform === 'linux') {
     app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
     features.push('VaapiVideoDecodeLinuxGL', 'VaapiVideoDecoder', 'WaylandWindowDecorations');
+  } else {
+    // HEVC (H.265) is common in anime and movie rips; Chromium decodes it only through the platform's hardware decoder.
+    features.push('PlatformHEVCDecoderSupport');
   }
   if (features.length) app.commandLine.appendSwitch('enable-features', features.join(','));
   // Without this Chromium leaves `video.audioTracks` undefined, so a file with several audio tracks looks like it has one.
@@ -62,6 +66,7 @@ const isAppUrl = (url: string) => APP_URL_PREFIXES.some((p) => url.startsWith(p)
 
 let win: BrowserWindow | null = null;
 let storage!: Storage;
+let proxies!: Proxies;
 
 /* ── 3. window ────────────────────────────────────────────────────────────── */
 
@@ -85,7 +90,9 @@ function createWindow(): void {
       webSecurity: true,
       spellcheck: false,
       // The sync loop must keep its rhythm while the window is covered or unfocused.
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      // The player starts and syncs several media elements itself; the browser's autoplay rules would silence the extra audio.
+      autoplayPolicy: 'no-user-gesture-required'
     }
   });
 
@@ -261,6 +268,27 @@ function registerIpc(): void {
     return text === null ? null : { path, name: basename(path), text };
   });
 
+  handle('rp:proxy:audio', async (e, path: string, index: number) => {
+    if (!isVideoPath(str(path)) || !Number.isInteger(index) || index < 0 || index > 64) throw new Error('Invalid audio request.');
+    const file = await proxies.audio(path, index, (fraction) => {
+      if (!e.sender.isDestroyed()) e.sender.send('rp:proxy-progress', { path, index, fraction });
+    });
+    return { url: toMediaUrl(file) };
+  });
+
+  handle('rp:gpu', async () => {
+    const status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
+    let renderer = '';
+    try {
+      const info = (await app.getGPUInfo('basic')) as { gpuDevice?: { active?: boolean; deviceString?: string; vendorString?: string }[] };
+      const gpu = info.gpuDevice?.find((g) => g.active) ?? info.gpuDevice?.[0];
+      renderer = [gpu?.vendorString, gpu?.deviceString].filter(Boolean).join(' ');
+    } catch {
+      /* unknown */
+    }
+    return { videoDecode: status.video_decode ?? 'unknown', rasterization: status.rasterization ?? 'unknown', renderer };
+  });
+
   handle('rp:reveal-data', async () => {
     await shell.openPath(storage.root);
   });
@@ -315,6 +343,8 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     storage = new Storage(app.getPath('userData'));
+    proxies = new Proxies(join(app.getPath('userData'), 'cache', 'audio'));
+    void proxies.prune();
     protocol.handle(MEDIA_SCHEME, (request) => handleMediaRequest(request));
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     relaxMediaCors();

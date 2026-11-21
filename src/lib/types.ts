@@ -253,6 +253,10 @@ export interface PlaybackPrefs {
   keepHudWhilePaused: boolean;
   /** Start over when the shared timeline reaches its end. */
   loop: boolean;
+  /** New sessions mute every video but the master. Off (default): every video is audible, the reaction included. */
+  muteOthers: boolean;
+  /** Ask about another source when the reaction runs this many minutes past the end of the source. 0 never asks. */
+  sourcePromptMinutes: number;
 }
 
 export interface AppSettings {

@@ -30,6 +30,8 @@ const KEY_PREFIX = 'reaction-player:';
 /** Desktop: the content of settings.json, loaded once at boot and written back (debounced) on every change. */
 const settingsFile = new Map<string, unknown>();
 let settingsTimer: ReturnType<typeof setTimeout> | null = null;
+/** Settings are written back only after they have been read: closing during start-up must not replace the file with an empty one. */
+let settingsRead = false;
 
 const fileKey = (key: string) => (key.startsWith(KEY_PREFIX) ? key.slice(KEY_PREFIX.length) : key);
 
@@ -41,7 +43,7 @@ function scheduleSettingsWrite(): void {
 
 /** Writes settings.json now. Called by the debounce and when the window is closing. */
 export async function flushSettings(): Promise<void> {
-  if (!desktop) return;
+  if (!desktop || !settingsRead) return;
   if (settingsTimer) clearTimeout(settingsTimer);
   settingsTimer = null;
   try {
@@ -54,11 +56,14 @@ export async function flushSettings(): Promise<void> {
 /** Loads the desktop settings file. Await it before reading any value. A no-op in the browser. */
 export async function initPersistence(): Promise<void> {
   if (!desktop) return;
+  let stored: Record<string, unknown> | null | undefined;
   try {
-    const stored = await desktop.storage.readSettings();
+    stored = await desktop.storage.readSettings();
     for (const [k, v] of Object.entries(stored ?? {})) settingsFile.set(k, v);
+    settingsRead = true;
   } catch {
-    /* start with defaults */
+    /* unreadable: start with defaults, and keep the file as it is until the user changes something */
+    settingsRead = stored === undefined;
   }
 }
 

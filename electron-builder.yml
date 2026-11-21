@@ -7,7 +7,11 @@ directories:
 files:
   - out/**/*
   - package.json
+  - node_modules/@ffmpeg-installer/**/*
 asar: true
+# ffmpeg is an executable: it has to sit outside the asar archive to be run.
+asarUnpack:
+  - node_modules/@ffmpeg-installer/**
 compression: normal
 artifactName: reaction-player-${version}-${os}-${arch}.${ext}
 

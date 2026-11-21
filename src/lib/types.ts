@@ -99,8 +99,10 @@ export interface SessionVideo {
    * The master video's own offset is always 0.
    */
   offsetMs: number;
-  /** Index into `video.audioTracks` when the browser exposes them. */
+  /** Index into `video.audioTracks`: which of the file's audio tracks plays. */
   audioTrack?: number;
+  /** The subtitles shown on this layer, or none. */
+  subtitle?: SubtitleSetting;
   /**
    * The source playlist: episodes played one after another in this one layer. Present only when there are two or more.
    * The first item has this video's own id. While a playlist exists the fields above (title, kind, url, filePath, fileName,
@@ -115,6 +117,19 @@ export interface SessionVideo {
   waiting?: boolean;
 }
 
+/** Which subtitles a layer shows: a track stored in the video, or a subtitle file. */
+export interface SubtitleSetting {
+  kind: 'embedded' | 'file';
+  /** Embedded: the container's number for the track. */
+  track?: number;
+  /** File: where it is on disk (desktop). A file picked in a browser is kept for this visit only. */
+  path?: string;
+  /** What the menu calls it. */
+  label: string;
+  /** Shifts the text in ms: positive shows it later. */
+  delayMs?: number;
+}
+
 /** One episode in a source playlist. */
 export interface SourceItem {
   /** Names this item's media. The first item shares the layer's id. */
@@ -126,6 +141,8 @@ export interface SourceItem {
   fileName?: string;
   fileSize?: number;
   duration: number;
+  audioTrack?: number;
+  subtitle?: SubtitleSetting;
   /**
    * The break between the end of the previous item and the start of this one, in ms. `null` means “wait for me to start it”:
    * the item is shown on its first frame, paused, and the reaction plays on. Ignored for the first item.

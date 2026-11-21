@@ -392,11 +392,19 @@ class PlaybackEngine {
 
   /* ── internals: events ── */
 
+  /** Plays the audio track the layer is set to (a file may hold several: languages, commentary). */
+  #applyAudioTrack(el: HTMLVideoElement, index: number | undefined): void {
+    const list = (el as HTMLVideoElement & { audioTracks?: ArrayLike<{ enabled: boolean }> }).audioTracks;
+    if (!list || index === undefined || index < 0 || index >= list.length) return;
+    for (let i = 0; i < list.length; i++) list[i].enabled = i === index;
+  }
+
   #onMeta(t: Track): void {
     const { el, id } = t;
     delete this.failed[id];
     if (el.videoWidth) this.dims[id] = { w: el.videoWidth, h: el.videoHeight };
     if (Number.isFinite(el.duration)) session.setDuration(id, el.duration);
+    this.#applyAudioTrack(el, session.video(id)?.audioTrack);
     this.#fitClock();
     const v = session.video(id);
     if (v && !this.running[id] && !this.playing) {

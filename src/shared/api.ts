@@ -19,6 +19,33 @@ export interface PickedPath {
 
 export type SaveOutcome = 'saved' | 'declined' | 'failed';
 
+/** An audio track stored in a video file, as read out of the container. */
+export interface AudioTrackInfo {
+  /** Position among the file's audio tracks (the order `video.audioTracks` uses). */
+  index: number;
+  label: string;
+  /** ISO 639 code ('eng', 'jpn', 'en'…). */
+  language: string;
+  isDefault: boolean;
+}
+
+/** A subtitle track stored in a video file. */
+export interface SubtitleTrackInfo {
+  /** The container's own number for the track: what `subtitles.extract` takes. */
+  track: number;
+  label: string;
+  language: string;
+  codec: string;
+  isDefault: boolean;
+  /** False for picture-based subtitles (PGS, VobSub), which cannot be shown as text. */
+  supported: boolean;
+}
+
+export interface MediaTrackInfo {
+  audio: AudioTrackInfo[];
+  subtitles: SubtitleTrackInfo[];
+}
+
 export interface StoredWallpaper {
   type: 'image' | 'gif';
   /** A `data:` URL when handing one in, an `https:` link or a `local-media://` URL when it comes back. */
@@ -76,6 +103,17 @@ export interface ElectronAPI {
   openJson(): Promise<{ name: string; text: string } | null>;
   /** Writes an image (a data: URL) to the system clipboard through Electron's native clipboard. */
   copyImage(dataUrl: string): Promise<void>;
+  /** Subtitles: the tracks stored in a video, their text, and subtitle files next to it. */
+  subtitles: {
+    /** Audio and subtitle tracks stored in the file, plus subtitle files beside it (same name, `.srt` etc.). */
+    probe(path: string): Promise<MediaTrackInfo & { sidecars: { path: string; name: string }[] }>;
+    /** The timed text of one subtitle track. */
+    extract(path: string, track: number): Promise<import('./subtitles').Cue[]>;
+    /** The text of a subtitle file by path. */
+    readFile(path: string): Promise<string | null>;
+    /** Native “open” dialog for a subtitle file. */
+    pickFile(): Promise<{ path: string; name: string; text: string } | null>;
+  };
   /** Shows the data folder in the system file manager. */
   revealDataFolder(): Promise<void>;
 

@@ -68,3 +68,21 @@ export const formatDate = (ts: number) =>
   new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: 'numeric' }).format(ts);
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** "eng", "jpn", "en" → "English", "Japanese"… ; the code itself when the language is not known. */
+export function languageName(code: string): string {
+  if (!code || code === 'und') return '';
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** A readable name for an audio or subtitle track: its own title, else its language, else "Track n"; a title and a language are shown together. */
+export function trackLabel(title: string | undefined, language: string | undefined, index: number): string {
+  const generic = !title || /^(sound|subtitle|text|video)?\s*handler$|^track \d+$|^(und|unknown)$/i.test(title.trim());
+  const lang = languageName(language ?? '');
+  if (generic) return lang || `Track ${index + 1}`;
+  return lang && !title!.toLowerCase().includes(lang.toLowerCase()) ? `${title} (${lang})` : title!;
+}

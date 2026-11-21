@@ -10,13 +10,15 @@
  */
 import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, Menu, nativeImage, nativeTheme, protocol, session, shell } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
-import { readFile, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { basename, dirname, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { PickedPath, SaveOutcome, StoredWallpaper } from '../src/shared/api';
-import { MEDIA_SCHEME, VIDEO_EXTENSIONS } from '../src/shared/mediaUrl';
+import { MEDIA_SCHEME, VIDEO_EXTENSIONS, isVideoPath } from '../src/shared/mediaUrl';
+import { SUBTITLE_EXTENSIONS, isSubtitlePath } from '../src/shared/subtitles';
 import { handleMediaRequest } from './media';
 import { Storage, writeFileAtomic } from './storage';
+import { extractSubtitles, probeTracks } from './tracks';
 
 /* ── 1. Chromium switches ─────────────────────────────────────────────────── */
 
@@ -32,6 +34,8 @@ function configureChromium(): void {
     features.push('VaapiVideoDecodeLinuxGL', 'VaapiVideoDecoder', 'WaylandWindowDecorations');
   }
   if (features.length) app.commandLine.appendSwitch('enable-features', features.join(','));
+  // Without this Chromium leaves `video.audioTracks` undefined, so a file with several audio tracks looks like it has one.
+  app.commandLine.appendSwitch('enable-blink-features', 'AudioVideoTracks');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
   app.commandLine.appendSwitch('enable-zero-copy');
@@ -132,6 +136,38 @@ const str = (v: unknown, max = 4096): string => {
   return v;
 };
 
+/** Subtitle files are often Windows-1252 rather than UTF-8: try UTF-8, then fall back. */
+function decodeText(buf: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder('windows-1252').decode(buf);
+  }
+}
+
+async function readSubtitleFile(path: string): Promise<string | null> {
+  if (!isSubtitlePath(path)) return null;
+  try {
+    if ((await stat(path)).size > 10_000_000) return null;
+    return decodeText(await readFile(path));
+  } catch {
+    return null;
+  }
+}
+
+/** Subtitle files beside a video: `episode.srt`, `episode.en.srt`… (same name up to the first dot after the video's name). */
+async function findSidecars(videoPath: string): Promise<{ path: string; name: string }[]> {
+  const stem = basename(videoPath, extname(videoPath)).toLowerCase();
+  try {
+    return (await readdir(dirname(videoPath)))
+      .filter((n) => isSubtitlePath(n) && n.toLowerCase().startsWith(stem) && /^[.\-_ ]|^\.[a-z]/i.test(n.slice(stem.length) || '.'))
+      .slice(0, 20)
+      .map((n) => ({ path: join(dirname(videoPath), n), name: n }));
+  } catch {
+    return [];
+  }
+}
+
 function registerIpc(): void {
   handle('rp:quit', () => {
     app.quit();
@@ -206,6 +242,23 @@ function registerIpc(): void {
     if (image.isEmpty()) throw new Error('The image could not be read.');
     // Electron 45's clipboard is the W3C one: write a ClipboardItem. The native image has re-encoded the picture as a clean PNG.
     await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })]);
+  });
+
+  /* ── tracks and subtitles ── */
+
+  handle('rp:sub:probe', async (_e, path: string) => {
+    if (!isVideoPath(str(path))) return { audio: [], subtitles: [], sidecars: [] };
+    return { ...(await probeTracks(path)), sidecars: await findSidecars(path) };
+  });
+  handle('rp:sub:extract', async (_e, path: string, track: number) => (isVideoPath(str(path)) && Number.isInteger(track) ? extractSubtitles(path, track) : []));
+  handle('rp:sub:read', (_e, path: string) => readSubtitleFile(str(path)));
+  handle('rp:sub:pick', async () => {
+    if (!win) return null;
+    const res = await dialog.showOpenDialog(win, { title: 'Choose a subtitle file', properties: ['openFile'], filters: [{ name: 'Subtitles', extensions: [...SUBTITLE_EXTENSIONS] }] });
+    const path = res.filePaths[0];
+    if (res.canceled || !path) return null;
+    const text = await readSubtitleFile(path);
+    return text === null ? null : { path, name: basename(path), text };
   });
 
   handle('rp:reveal-data', async () => {

@@ -100,6 +100,8 @@ export function mirrorCurrentItem(v: SessionVideo): void {
   v.fileName = it.fileName;
   v.fileSize = it.fileSize;
   v.duration = it.duration;
+  v.audioTrack = it.audioTrack;
+  v.subtitle = it.subtitle;
   v.offsetMs = place.offsetMs;
   v.waiting = place.waiting;
 }

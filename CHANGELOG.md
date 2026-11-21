@@ -5,6 +5,17 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Fixed and added: audio tracks and subtitles
+
+- **Files with several audio tracks now show all of them.** Chromium leaves `video.audioTracks` off unless the `AudioVideoTracks` feature is on, so every
+  file looked like it had one track. It is on now. Right-click a layer → **Audio track** lists them with their names and languages, and the choice is
+  remembered with the session (and per episode in a source playlist).
+- **Subtitles.** Right-click a layer → **Subtitles**: Off, every text subtitle track stored in the video (MKV, WebM and MP4 `mov_text`), subtitle files
+  beside the video (`episode.srt`, `episode.en.srt`…), or **Load a subtitle file…** (`.srt`, `.vtt`, `.ass`, `.ssa`). A delay stepper shifts them in
+  time. They are drawn over the layer, scale with it, and follow `\an` top and bottom placement and italics from ASS files. Picture subtitles
+  (PGS, VobSub) are listed but cannot be shown.
+- Chromium never exposes subtitles stored inside a file, so the main process reads them out of the container (`electron/tracks.ts`).
+
 ### Added: several sources, and the keyboard follows the clip
 
 - **Source playlist.** A reactor reacting to several episodes can add more sources. They play in the source layer, one after another, and

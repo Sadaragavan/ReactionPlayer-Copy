@@ -18,7 +18,7 @@ import { migrateSession } from '../engine/migrate';
 import { type NewSessionInput, buildSession, cloneSession, exportConfig } from '../engine/sessionFactory';
 import { offsetsFromLocals, rebaseOffsets } from '../engine/timeline';
 import { type ZOp, reorder, canReorder, zFromTopFirst } from '../engine/zorder';
-import type { ID, LayerTransform, LayoutType, Preset, Session, SessionVideo, SourceItem } from '../types';
+import type { ID, LayerTransform, LayoutType, Preset, Session, SessionVideo, SourceItem, SubtitleSetting } from '../types';
 import { uid } from '../utils/format';
 import { saveJSON, slugify, type SaveOutcome } from '../utils/file';
 import { idbDelete, idbGet, idbGetAll, idbPut, lsGet, lsRemove, lsSet } from './persistence';
@@ -227,6 +227,22 @@ class SessionStore {
       item.duration = duration;
       this.#mirror(v);
     } else v.duration = duration;
+  }
+
+  /** Chooses an audio track and/or subtitles for a layer (and for the playlist episode it is showing). */
+  setTrackChoice(id: ID, patch: { audioTrack?: number; subtitle?: SubtitleSetting | null }): void {
+    const v = this.video(id);
+    if (!v) return;
+    const item = v.sources?.[v.sourceIndex ?? 0];
+    if ('audioTrack' in patch) {
+      v.audioTrack = patch.audioTrack;
+      if (item) item.audioTrack = patch.audioTrack;
+    }
+    if ('subtitle' in patch) {
+      v.subtitle = patch.subtitle ?? undefined;
+      if (item) item.subtitle = patch.subtitle ?? undefined;
+    }
+    this.schedule();
   }
 
   /* ── source playlist ── */

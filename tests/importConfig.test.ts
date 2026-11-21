@@ -51,3 +51,23 @@ describe('parseConfig', () => {
     expect(parseConfig(null)).toBeNull();
   });
 });
+
+describe('parseConfig: audio track and subtitles', () => {
+  const withVideo = (extra: object) => config({}, [{ id: 'a', kind: 'file', title: 'A', ...extra }, { id: 'b', kind: 'file', title: 'B' }]);
+
+  it('keeps the chosen audio track and an embedded subtitle track', () => {
+    const s = parseConfig(withVideo({ audioTrack: 1, subtitle: { kind: 'embedded', track: 4, label: 'English', delayMs: 250 } }))!;
+    expect(s.videos[0].audioTrack).toBe(1);
+    expect(s.videos[0].subtitle).toEqual({ kind: 'embedded', track: 4, label: 'English', delayMs: 250 });
+  });
+
+  it('keeps a subtitle file only if it really is one', () => {
+    expect(parseConfig(withVideo({ subtitle: { kind: 'file', path: '/c/ep1.en.srt', label: 'ep1.en.srt' } }))!.videos[0].subtitle?.path).toBe('/c/ep1.en.srt');
+    expect(parseConfig(withVideo({ subtitle: { kind: 'file', path: '/etc/passwd', label: 'x' } }))!.videos[0].subtitle).toBeUndefined();
+  });
+
+  it('drops a malformed choice and clamps a wild delay', () => {
+    expect(parseConfig(withVideo({ subtitle: { kind: 'embedded', track: 'x' } }))!.videos[0].subtitle).toBeUndefined();
+    expect(parseConfig(withVideo({ subtitle: { kind: 'embedded', track: 1, delayMs: 1e12 } }))!.videos[0].subtitle?.delayMs).toBe(600000);
+  });
+});

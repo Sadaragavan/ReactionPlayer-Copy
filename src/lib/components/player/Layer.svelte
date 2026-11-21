@@ -12,11 +12,13 @@
   import { playableUrl } from '$lib/engine/demo';
   import { pickVideoFiles } from '$lib/engine/media';
   import { playback } from '$lib/engine/playback.svelte';
+  import { subtitles } from '$lib/engine/subtitles.svelte';
   import { desktop } from '$lib/platform';
   import { session } from '$lib/stores/session.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import type { ID, IconComponent, SessionVideo, VideoRole } from '$lib/types';
   import { HANDLES, rectToStyle, videoPlacement } from '$lib/utils/geometry';
+  import SubtitleOverlay from './SubtitleOverlay.svelte';
 
   interface Props {
     video: SessionVideo;
@@ -55,6 +57,14 @@
   const place = $derived.by(() => {
     const d = playback.dims[video.id];
     return t ? videoPlacement({ w: bw, h: bh }, d?.w ?? 0, d?.h ?? 0, t.crop, t.fit) : null;
+  });
+
+  // Look for the subtitle tracks stored in this video, and load the cues the layer is set to show.
+  $effect(() => {
+    void subtitles.prefetch(session.mediaIdOf(video), video.filePath);
+  });
+  $effect(() => {
+    void subtitles.sync({ id: video.id, filePath: video.filePath, subtitle: video.subtitle });
   });
 
   async function chooseFile() {
@@ -104,6 +114,10 @@
         class:gpu
         style={place ? `left:${place.left}px;top:${place.top}px;width:${place.width}px;height:${place.height}px` : 'visibility:hidden'}
       ></video>
+
+      {#if video.subtitle && !needsFile}
+        <SubtitleOverlay layerId={video.id} time={playback.times[video.id] ?? 0} height={bh} delayMs={video.subtitle.delayMs ?? 0} />
+      {/if}
 
       {#if needsFile}
         <div class="absolute inset-0 grid place-items-center bg-black p-3 text-center">

@@ -8,8 +8,9 @@
  * “Choose file” prompt on exactly those layers.
  */
 import { isVideoPath } from '../../shared/mediaUrl';
+import { isSubtitlePath } from '../../shared/subtitles';
 import { ASPECT_OPTIONS, CANVAS_ASPECTS, MIN_LAYER_SIZE } from '../constants';
-import type { AspectLock, CanvasAspect, Crop, FitMode, ID, LayerTransform, LayoutType, Session, SessionVideo, SourceItem } from '../types';
+import type { AspectLock, CanvasAspect, Crop, FitMode, ID, LayerTransform, LayoutType, Session, SessionVideo, SourceItem, SubtitleSetting } from '../types';
 import { uid } from '../utils/format';
 import { ZERO_CROP, clamp } from '../utils/geometry';
 import { buildLayout } from './layouts';
@@ -63,6 +64,16 @@ function cleanTransform(raw: unknown, fallback: LayerTransform): LayerTransform 
 }
 
 /** Returns a new, locked session, or `null` when `raw` is not a Reaction Player config. */
+/** A subtitle choice from a file: kept only when it is well formed; a path must be a subtitle file. */
+function cleanSubtitle(raw: unknown): SubtitleSetting | undefined {
+  if (!isObj(raw)) return undefined;
+  const label = typeof raw.label === 'string' ? raw.label.slice(0, 120) : '';
+  const delayMs = typeof raw.delayMs === 'number' && Number.isFinite(raw.delayMs) ? Math.round(Math.max(-600_000, Math.min(600_000, raw.delayMs))) : undefined;
+  if (raw.kind === 'embedded' && typeof raw.track === 'number' && raw.track >= 0) return { kind: 'embedded', track: Math.floor(raw.track), label: label || 'Subtitles', delayMs };
+  if (raw.kind === 'file' && typeof raw.path === 'string' && raw.path.length <= 1024 && isSubtitlePath(raw.path)) return { kind: 'file', path: raw.path, label: label || 'Subtitles', delayMs };
+  return undefined;
+}
+
 /** The source playlist of the first video, when the file has one with two or more episodes. Item ids are renewed; the first takes the layer's. */
 function cleanPlaylist(v: Record<string, unknown>, layerId: ID): Partial<SessionVideo> {
   if (!Array.isArray(v.sources) || v.sources.length < 2 || v.sources.length > 50) return {};
@@ -78,6 +89,8 @@ function cleanPlaylist(v: Record<string, unknown>, layerId: ID): Partial<Session
       filePath: !remote && typeof x.filePath === 'string' && x.filePath.length <= 1024 && isVideoPath(x.filePath) ? x.filePath : undefined,
       fileSize: typeof x.fileSize === 'number' && x.fileSize >= 0 ? x.fileSize : undefined,
       duration: num(x.duration, 0, 0),
+      audioTrack: typeof x.audioTrack === 'number' && x.audioTrack >= 0 ? Math.floor(x.audioTrack) : undefined,
+      subtitle: cleanSubtitle(x.subtitle),
       gapMs: k === 0 || x.gapMs === null ? null : Math.round(num(x.gapMs, 0, 0, 86_400_000))
     };
   });
@@ -117,6 +130,7 @@ export function parseConfig(raw: unknown, now = Date.now()): Session | null {
       playbackRate: num(v.playbackRate, 1, 0.25, 4),
       offsetMs: Math.round(num(v.offsetMs, 0, -3_600_000, 3_600_000)),
       audioTrack: typeof v.audioTrack === 'number' && v.audioTrack >= 0 ? Math.floor(v.audioTrack) : undefined,
+      subtitle: cleanSubtitle(v.subtitle),
       ...(i === 0 ? cleanPlaylist(v, id) : {})
     };
   });

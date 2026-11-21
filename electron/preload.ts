@@ -37,6 +37,13 @@ const api: ElectronAPI = {
   copyImage: (dataUrl) => invoke('rp:copy-image', dataUrl),
   revealDataFolder: () => invoke('rp:reveal-data'),
 
+  subtitles: {
+    probe: (path) => invoke('rp:sub:probe', path),
+    extract: (path, track) => invoke('rp:sub:extract', path, track),
+    readFile: (path) => invoke('rp:sub:read', path),
+    pickFile: () => invoke('rp:sub:pick')
+  },
+
   storage: {
     userDataPath: () => invoke('rp:storage:path'),
     readSettings: () => invoke('rp:storage:read-settings'),

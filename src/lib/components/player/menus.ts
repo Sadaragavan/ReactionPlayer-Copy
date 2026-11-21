@@ -8,6 +8,7 @@ import {
   ArrowUpToLine,
   AudioLines,
   ChevronDown,
+  Captions,
   ChevronUp,
   Copy,
   ListPlus,
@@ -29,7 +30,9 @@ import { captureErrorMessage } from '$lib/engine/capture';
 import { playback } from '$lib/engine/playback.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { ui } from '$lib/stores/ui.svelte';
+import { subtitles } from '$lib/engine/subtitles.svelte';
 import { type ZOp, Z_LABEL } from '$lib/engine/zorder';
+import { trackLabel } from '$lib/utils/format';
 import type { ID, IconComponent, MenuEntry } from '$lib/types';
 import { formatOffset } from '$lib/utils/format';
 import { toggleFullscreen } from '$lib/utils/fullscreen';
@@ -156,17 +159,56 @@ export function videoMenu(id: ID): MenuEntry[] {
           icon: AudioLines,
           children: Array.from(tracks, (tr, i) => ({
             id: `track-${i}`,
-            label: tr.label || tr.language || `Track ${i + 1}`,
+            label: trackLabel(tr.label, tr.language, i),
             checked: (v.audioTrack ?? Array.from(tracks).findIndex((x) => x.enabled)) === i,
             onSelect: () => {
               Array.from(tracks).forEach((x, k) => (x.enabled = k === i));
-              session.updateVideo(id, { audioTrack: i });
+              session.setTrackChoice(id, { audioTrack: i });
             }
           }))
         }
       : { id: 'track', label: 'Audio track', icon: AudioLines, hint: 'Single track', disabled: true },
+    subtitleMenu(id),
     { id: 'mute', label: v.muted ? 'Unmute' : 'Mute', icon: v.muted ? Volume2 : VolumeX, onSelect: () => session.toggleMute(id) }
   ];
+}
+
+/** The Subtitles submenu: off, the tracks stored in the video, subtitle files beside it, and any file. */
+function subtitleMenu(id: ID): MenuEntry {
+  const v = session.video(id);
+  const current = v?.subtitle;
+  const found = subtitles.probes[session.mediaIdOf(v ?? { id })];
+  const same = (a: typeof current, b: NonNullable<typeof current>) => !!a && a.kind === b.kind && a.track === b.track && a.path === b.path && a.label === b.label;
+
+  const entries: MenuEntry[] = [{ id: 'sub-off', label: 'Off', checked: !current, onSelect: () => subtitles.choose(id, null) }];
+  for (const [i, t] of (found?.subtitles ?? []).entries()) {
+    const setting = { kind: 'embedded' as const, track: t.track, label: trackLabel(t.label, t.language, i) };
+    entries.push({
+      id: `sub-${t.track}`,
+      label: setting.label,
+      hint: t.supported ? undefined : 'Pictures, cannot show',
+      disabled: !t.supported,
+      checked: current?.kind === 'embedded' && current.track === t.track,
+      onSelect: () => subtitles.choose(id, { ...setting, delayMs: current?.delayMs })
+    });
+  }
+  for (const f of found?.sidecars ?? []) {
+    const setting = { kind: 'file' as const, path: f.path, label: f.name };
+    entries.push({ id: `sub-file-${f.path}`, label: f.name, checked: same(current, setting), onSelect: () => subtitles.choose(id, { ...setting, delayMs: current?.delayMs }) });
+  }
+  entries.push({ type: 'separator', id: 'sub-sep' }, { id: 'sub-load', label: 'Load a subtitle file…', onSelect: () => void subtitles.chooseFile(id) });
+  if (current) {
+    entries.push({
+      type: 'stepper',
+      id: 'sub-delay',
+      label: 'Subtitle delay',
+      value: () => formatOffset(session.video(id)?.subtitle?.delayMs ?? 0),
+      steps: [-500, -100, 100, 500],
+      onStep: (ms: number) => subtitles.nudge(id, ms),
+      onReset: () => session.video(id)?.subtitle && session.setTrackChoice(id, { subtitle: { ...session.video(id)!.subtitle!, delayMs: 0 } })
+    });
+  }
+  return { id: 'subtitles', label: 'Subtitles', icon: Captions, hint: current ? current.label : undefined, children: entries };
 }
 
 const LAYOUT_LABEL = { split: 'Side by side', grid: 'Stacked grid', pip: 'Picture in picture' } as const;

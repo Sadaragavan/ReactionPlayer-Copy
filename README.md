@@ -76,6 +76,9 @@ any distribution: `chmod +x reaction-player-*.AppImage && ./reaction-player-*.Ap
   episode ends, the next one is swapped in at once on its first frame and **waits**: press `N` (or **Start it**) when the reactor starts
   it, or give it an automatic break in the playlist. Drag episodes in the playlist to reorder them. If the reaction runs longer than the
   source, the player asks whether to add another source.
+- **Audio tracks and subtitles.** Right-click a layer → **Audio track** to pick among a file's audio tracks (languages, commentary), and
+  **Subtitles** to show a text track stored in the video (MKV, WebM, MP4), a subtitle file next to it, or any `.srt`, `.vtt`, `.ass` or `.ssa` you load.
+  Subtitles can be shifted in time. Picture-based subtitles (PGS, VobSub) cannot be shown.
 - **Videos of different lengths.** The timeline is the union of all footage. A video that has not started yet, or
   has ended, waits on its first or last frame while the others play, and playback stops when every video has ended.
 - **Copy frame** (right-click a layer) puts that video's current picture, with its crop, on the system clipboard through

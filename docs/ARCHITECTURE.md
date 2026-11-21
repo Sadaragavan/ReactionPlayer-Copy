@@ -150,6 +150,16 @@ and picture extensions. On open, `restoreSessionMedia` checks that each path sti
 In a browser the registry keeps blob URLs and File System Access handles instead. The sample clips use a `demo:source` /
 `demo:reaction` scheme (`engine/demo.ts`), so saved demo sessions survive a rebuild that changes the hashed asset names.
 
+## Audio tracks and subtitles
+
+Chromium's `video.audioTracks` exists only with the `AudioVideoTracks` Blink feature, which `electron/main.ts` switches on; the layer menu
+lists them and `SessionVideo.audioTrack` (re-applied by `playback.#applyAudioTrack` when the video loads) remembers the choice. Chromium never exposes
+subtitles stored in a container, so `electron/tracks.ts` reads them: it lists the audio and subtitle tracks of Matroska/WebM and the subtitle
+tracks of MP4, and extracts the text of SubRip, ASS/SSA (MKV) and `tx3g` (MP4) tracks by walking only the file's structure (seeking past the
+media data). `src/shared/subtitles.ts` parses `.srt`, `.vtt` and `.ass` files and finds the cues at a time. `engine/subtitles.svelte.ts` holds each layer's
+cues and the probe results; `Layer` loads them for `SessionVideo.subtitle` and `SubtitleOverlay` draws them. Both choices are saved per video
+(and per playlist episode, mirrored like the other fields).
+
 ## Source playlists
 
 A reactor may react to several episodes, so the source layer can hold a playlist (`SessionVideo.sources`, `sourceIndex`, `firstOffsetMs`).

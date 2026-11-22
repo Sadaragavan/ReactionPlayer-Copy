@@ -38,5 +38,8 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.59.0"
+  },
+  "allowScripts": {
+    "electron@45.3.4": true
   }
 }

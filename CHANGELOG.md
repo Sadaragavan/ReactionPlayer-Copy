@@ -5,6 +5,19 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Fixed: no sound, no picture subtitles, a muted reaction, and a nagging popup
+
+- **Audio that Chromium cannot decode now plays.** Many movie and anime releases carry AC-3 (Dolby Digital), E-AC-3, DTS or TrueHD audio, which
+  Chromium silently drops: the video played with no sound. The player now converts that one track to AAC (the video is not touched), keeps the copy in the
+  app's cache folder, and plays it in step with the video, following play, pause, seeking, speed and volume. The first time it shows "Preparing audio…".
+  ffmpeg ships inside the app for this (a system `ffmpeg` is the fallback). The Audio track menu lists every track in the file, including these, marked "Converted".
+- **Picture subtitles (PGS)**, the format on Blu-ray rips, are decoded and drawn over the video at their authored position. MKV files whose blocks the muxer
+  compressed with zlib (as in your file) are handled too.
+- **The reaction is no longer muted when a session starts.** Every video is audible; Preferences → Playback → "Mute the other videos" brings the old behaviour back.
+- **The "play another source?" question has a threshold**, 15 minutes past the end of the source by default (Preferences → Playback; 0 turns it off).
+- A file whose video cannot be decoded now says why (HEVC/H.265 needs "HEVC Video Extensions" on Windows) and Preferences shows whether video is decoded by the graphics chip or the processor.
+- Fixed: closing or reloading the window while the app was still starting could replace `settings.json` with an empty file.
+
 ### Fixed and added: audio tracks and subtitles
 
 - **Files with several audio tracks now show all of them.** Chromium leaves `video.audioTracks` off unless the `AudioVideoTracks` feature is on, so every

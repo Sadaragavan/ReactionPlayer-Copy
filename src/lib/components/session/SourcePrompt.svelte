@@ -8,6 +8,7 @@
   import { sourceEndsEarly, sourceRange } from '$lib/engine/playlist';
   import { playback } from '$lib/engine/playback.svelte';
   import { session } from '$lib/stores/session.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import Button from '../ui/Button.svelte';
   import IconButton from '../ui/IconButton.svelte';
@@ -30,17 +31,19 @@
 
   /** The reaction clearly outlasts everything the source layer can show. Needs every length to be known. */
   const reactionLonger = $derived.by(() => {
-    if (!s || !source || !reaction || !(reaction.duration > 0)) return false;
+    const slack = settings.playback.sourcePromptMinutes * 60;
+    if (!s || !source || !reaction || !(reaction.duration > 0) || slack <= 0) return false;
     const items = source.sources ?? [{ duration: source.duration }];
     if (items.some((it) => !(it.duration > 0))) return false;
     if (source.sources && source.waiting) return false; // a later episode is already waiting: there is a source to play
     if (s.isLinked) {
       const span = source.sources ? sourceRange(session.spansOf(source)) : { start: -source.offsetMs / 1000, end: source.duration - source.offsetMs / 1000 };
-      return sourceEndsEarly(span?.end ?? null, reaction.duration - reaction.offsetMs / 1000);
+      return sourceEndsEarly(span?.end ?? null, reaction.duration - reaction.offsetMs / 1000, slack);
     }
     return sourceEndsEarly(
       items.reduce((sum, it) => sum + it.duration, 0),
-      reaction.duration
+      reaction.duration,
+      slack
     );
   });
 
@@ -54,7 +57,7 @@
         <span class="min-w-0 truncate text-fg-2">Next source ready: <span class="text-fg">{source?.title}</span>. It is waiting on its first frame.</span>
         <Button size="sm" variant="primary" icon={Play} onclick={() => playback.startNextSource()}>Start it</Button>
       {:else}
-        <span class="min-w-0 text-fg-2">The reaction runs longer than the source. Play another source?</span>
+        <span class="min-w-0 text-fg-2">The reaction runs {Math.round(settings.playback.sourcePromptMinutes)}+ minutes past the source. Play another source?</span>
         <Button size="sm" variant="primary" icon={ListPlus} onclick={() => (ui.addSourceOpen = true)}>Add a source</Button>
         <IconButton size="sm" icon={X} label="Not now" side="bottom" onclick={() => (ui.sourcePromptDismissed[key] = true)} />
       {/if}

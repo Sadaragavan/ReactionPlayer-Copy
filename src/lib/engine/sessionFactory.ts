@@ -32,6 +32,8 @@ export interface NewSessionInput {
   layout: LayoutType | { preset: Preset };
   linked: boolean;
   masterPolicy: MasterAudioPolicy;
+  /** Mute every video but the master. Default off: all of them are heard. */
+  muteOthers?: boolean;
   /** Shape of the black canvas. Defaults to 16:9. */
   canvasAspect?: CanvasAspect;
 }
@@ -78,7 +80,7 @@ export function buildSession(input: NewSessionInput, now = Date.now()): BuiltSes
   const more = inputs[0].moreSources ?? [];
   const masterId = (input.masterPolicy === 'reaction' || more.length ? raw[1] : raw[0]).id;
   const offsets = rebaseOffsets(raw, masterId);
-  const videos = raw.map((v) => ({ ...v, offsetMs: offsets[v.id], muted: v.id !== masterId }));
+  const videos = raw.map((v) => ({ ...v, offsetMs: offsets[v.id], muted: !!input.muteOthers && v.id !== masterId }));
 
   const extraItems: SourceItem[] = more.map((m) => ({
     id: uid('vid'),

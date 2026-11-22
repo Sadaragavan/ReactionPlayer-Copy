@@ -28,7 +28,10 @@ import type { ID, SessionVideo } from '../types';
 import { copyCanvasToClipboard } from '../utils/file';
 import { clamp } from '../utils/geometry';
 import { canvasRatio, captureFrame, composeStage, type StageLayer } from './capture';
+import { audioProxy } from './audioProxy.svelte';
+import { mediaTracks } from './mediaTracks.svelte';
 import { sourceIndexAt, sourceRange } from './playlist';
+import { SidecarAudio } from './sidecar';
 import { clampLocal, frameCentre, frameIndexAt, isActive, planCorrection, timelineRange, type TimelineVideo } from './timeline';
 import { type FrameMeta, Track } from './track';
 
@@ -117,6 +120,10 @@ class PlaybackEngine {
     this.applyProps();
     if (el.readyState >= 1) this.#onMeta(track);
     return () => {
+      this.#sidecars.get(id)?.dispose();
+      this.#sidecars.delete(id);
+      this.#audioToken.set(id, (this.#audioToken.get(id) ?? 0) + 1);
+      audioProxy.forget(id);
       track.destroy();
       this.#tracks.delete(id);
       delete this.running[id];
@@ -392,11 +399,57 @@ class PlaybackEngine {
 
   /* ── internals: events ── */
 
-  /** Plays the audio track the layer is set to (a file may hold several: languages, commentary). */
-  #applyAudioTrack(el: HTMLVideoElement, index: number | undefined): void {
-    const list = (el as HTMLVideoElement & { audioTracks?: ArrayLike<{ enabled: boolean }> }).audioTracks;
-    if (!list || index === undefined || index < 0 || index >= list.length) return;
-    for (let i = 0; i < list.length; i++) list[i].enabled = i === index;
+  /** Converted-audio players for tracks Chromium cannot decode, by layer id. */
+  readonly #sidecars = new Map<ID, SidecarAudio>();
+  /** Bumped on every refresh, so a slow conversion cannot apply to a choice the user has since changed. */
+  readonly #audioToken = new Map<ID, number>();
+
+  /**
+   * Makes the layer play the audio track it is set to (a file may hold several: languages, commentary). A track Chromium
+   * can decode is switched on in the video itself. One it cannot (AC-3, E-AC-3, DTS, TrueHD) is converted to AAC and played
+   * by a separate element that follows the video. Call after the video loads and after the choice changes.
+   */
+  async refreshAudio(id: ID): Promise<void> {
+    const v = session.video(id);
+    const el = this.#tracks.get(id)?.el;
+    if (!v || !el) return;
+    const token = (this.#audioToken.get(id) ?? 0) + 1;
+    this.#audioToken.set(id, token);
+    const native = (el as HTMLVideoElement & { audioTracks?: { length: number; [i: number]: { enabled: boolean } } }).audioTracks;
+    const setNative = (index: number | null) => {
+      if (native) for (let i = 0; i < native.length; i++) native[i].enabled = i === index;
+    };
+    const stop = () => {
+      this.#sidecars.get(id)?.dispose();
+      this.#sidecars.delete(id);
+      audioProxy.forget(id);
+    };
+
+    const mediaId = session.mediaIdOf(v);
+    const probe = await mediaTracks.prefetch(mediaId, v.filePath);
+    if (this.#audioToken.get(id) !== token) return;
+    const tracks = probe?.audio ?? [];
+    if (!tracks.length) {
+      // Nothing read from the container (a browser, or a format we do not read): use what Chromium reports.
+      stop();
+      if (native && v.audioTrack !== undefined && v.audioTrack < native.length) setNative(v.audioTrack);
+      return;
+    }
+    const want = v.audioTrack !== undefined && tracks[v.audioTrack] ? v.audioTrack : (tracks.find((t) => t.isDefault)?.index ?? 0);
+    const track = tracks[want];
+    if (track.playable) {
+      stop();
+      // Chromium lists only the tracks it can decode, in order.
+      setNative(tracks.filter((t) => t.playable && t.index < want).length);
+      return;
+    }
+    setNative(null);
+    if (!v.filePath) return;
+    const url = await audioProxy.ensure(id, v.filePath, want, v.title);
+    if (this.#audioToken.get(id) !== token) return;
+    this.#sidecars.get(id)?.dispose();
+    this.#sidecars.delete(id);
+    if (url) this.#sidecars.set(id, new SidecarAudio(el, url));
   }
 
   #onMeta(t: Track): void {
@@ -404,7 +457,7 @@ class PlaybackEngine {
     delete this.failed[id];
     if (el.videoWidth) this.dims[id] = { w: el.videoWidth, h: el.videoHeight };
     if (Number.isFinite(el.duration)) session.setDuration(id, el.duration);
-    this.#applyAudioTrack(el, session.video(id)?.audioTrack);
+    void this.refreshAudio(id);
     this.#fitClock();
     const v = session.video(id);
     if (v && !this.running[id] && !this.playing) {

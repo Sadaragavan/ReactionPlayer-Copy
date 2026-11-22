@@ -77,7 +77,8 @@ export function playableUrl(video: Pick<SessionVideo, 'id' | 'kind' | 'url'>): s
 export function demoSessionInput(
   layout: Exclude<LayoutType, 'custom'>,
   masterPolicy: MasterAudioPolicy,
-  linked: boolean
+  linked: boolean,
+  muteOthers = false
 ): NewSessionInput {
   return {
     name: 'Demo: flash sync',
@@ -88,6 +89,7 @@ export function demoSessionInput(
     layout,
     linked,
     masterPolicy,
+    muteOthers,
     canvasAspect: '16:9'
   };
 }

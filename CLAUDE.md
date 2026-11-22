@@ -32,6 +32,7 @@ CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds install
 - A source layer may hold a playlist (`SessionVideo.sources`). While it does, the layer's own title, kind, url, filePath, duration, offsetMs and `waiting`
   mirror the current episode (`mirrorCurrentItem`), so most code never sees the playlist. Media for an episode is registered under the episode's id
   (`session.mediaIdOf`). Change it only through the `session` store (`addSource`, `moveSource`, `activateSource`, `startSource` …).
+- A track Chromium cannot decode (`playable: false`) must go through `playback.refreshAudio` and the converted-audio sidecar; never assume `video.audioTracks` lists every track.
 - Subtitles are read by `electron/tracks.ts`, not by Chromium (it exposes none). Keep `AudioVideoTracks` on in `main.ts`; without it every file seems to have one audio track.
 - There are no plans, tiers or limits other than four videos (`MAX_VIDEOS`). Do not bring gating back.
 - Anything the page may ask of the system goes through `window.electronAPI` (`src/shared/api.ts`, `electron/preload.ts`) and must

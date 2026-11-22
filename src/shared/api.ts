@@ -27,6 +27,10 @@ export interface AudioTrackInfo {
   /** ISO 639 code ('eng', 'jpn', 'en'…). */
   language: string;
   isDefault: boolean;
+  /** The container's codec name (`A_AC3`, `A_OPUS`, `ac-3`, `mp4a`…). */
+  codec: string;
+  /** False when Chromium cannot decode it (AC-3, E-AC-3, DTS, TrueHD…): the file plays silent unless the track is converted. */
+  playable: boolean;
 }
 
 /** A subtitle track stored in a video file. */
@@ -44,6 +48,8 @@ export interface SubtitleTrackInfo {
 export interface MediaTrackInfo {
   audio: AudioTrackInfo[];
   subtitles: SubtitleTrackInfo[];
+  /** The first video track's codec name (`V_MPEGH/ISO/HEVC`, `avc1`…), when it could be read. */
+  videoCodec?: string;
 }
 
 export interface StoredWallpaper {
@@ -114,6 +120,15 @@ export interface ElectronAPI {
     /** Native “open” dialog for a subtitle file. */
     pickFile(): Promise<{ path: string; name: string; text: string } | null>;
   };
+  /** Playable copies of what Chromium cannot play (the audio of AC-3, E-AC-3, DTS and TrueHD tracks). */
+  proxy: {
+    /** Converts one audio track to AAC (cached) and returns the URL that plays it. Rejects when ffmpeg is missing or fails. */
+    prepareAudio(path: string, index: number): Promise<{ url: string }>;
+    /** Progress (0–1) of conversions, as they run. Returns the unsubscribe. */
+    onProgress(listener: (e: { path: string; index: number; fraction: number }) => void): () => void;
+  };
+  /** How this computer decodes video: what Chromium reports about the GPU. */
+  gpuStatus(): Promise<{ videoDecode: string; rasterization: string; renderer: string }>;
   /** Shows the data folder in the system file manager. */
   revealDataFolder(): Promise<void>;
 

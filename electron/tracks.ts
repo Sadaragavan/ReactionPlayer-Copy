@@ -10,8 +10,10 @@
  * Pure Node, no Electron import.
  */
 import { open, type FileHandle } from 'node:fs/promises';
+import { inflateSync } from 'node:zlib';
 import { cleanAssText, splitLimit, type Cue } from '../src/shared/subtitles';
 import { extensionOf } from '../src/shared/mediaUrl';
+import { PgsDecoder } from './pgs';
 import type { MediaTrackInfo, SubtitleTrackInfo, AudioTrackInfo } from '../src/shared/api';
 
 /** Reads a file through a small read-ahead window, so walking thousands of tiny headers is not thousands of reads. */
@@ -59,11 +61,16 @@ const ID = {
   SimpleBlock: 0xa3,
   BlockGroup: 0xa0,
   Block: 0xa1,
-  BlockDuration: 0x9b
+  BlockDuration: 0x9b,
+  ContentEncodings: 0x6d80,
+  ContentEncoding: 0x6240,
+  ContentCompression: 0x5034,
+  ContentCompAlgo: 0x4254,
+  ContentCompSettings: 0x4255
 } as const;
 
 /** Elements whose children we want; every other element is skipped by its size. */
-const DESCEND = new Set<number>([ID.Segment, ID.Info, ID.Tracks, ID.TrackEntry, ID.Cluster, ID.BlockGroup]);
+const DESCEND = new Set<number>([ID.Segment, ID.Info, ID.Tracks, ID.TrackEntry, ID.Cluster, ID.BlockGroup, ID.ContentEncodings, ID.ContentEncoding, ID.ContentCompression]);
 
 interface Header {
   id: number;
@@ -99,9 +106,13 @@ interface MkvTrack {
   name: string;
   isDefault: boolean;
   codecPrivate?: Buffer;
+  /** ContentCompression: 0 = zlib, 3 = a stripped header put back in front of every block. */
+  compAlgo?: number;
+  compSettings?: Buffer;
 }
 
 const TEXT_CODECS = new Set(['S_TEXT/UTF8', 'S_TEXT/ASCII', 'S_TEXT/ASS', 'S_TEXT/SSA', 'S_ASS', 'S_SSA']);
+const PGS = 'S_HDMV/PGS';
 const isAss = (codec: string) => /ASS|SSA/.test(codec);
 
 /**
@@ -121,6 +132,7 @@ async function walkMatroska(path: string, want?: number): Promise<{ tracks: MkvT
     let clusterTime = 0;
     let lastCue: Cue | null = null;
     let wantAss = false;
+    let pgs: PgsDecoder | null = null;
     let pos = 0;
 
     while (pos < r.size) {
@@ -179,6 +191,12 @@ async function walkMatroska(path: string, want?: number): Promise<{ tracks: MkvT
           case ID.CodecPrivate:
             if (current) current.codecPrivate = Buffer.from(b);
             break;
+          case ID.ContentCompAlgo:
+            if (current) current.compAlgo = uint(b);
+            break;
+          case ID.ContentCompSettings:
+            if (current) current.compSettings = Buffer.from(b);
+            break;
           case ID.BlockDuration:
             if (lastCue && want !== undefined) lastCue.end = lastCue.start + (uint(b) * scale) / 1e9;
             break;
@@ -191,10 +209,18 @@ async function walkMatroska(path: string, want?: number): Promise<{ tracks: MkvT
         const track = uint(head.subarray(0, tLen)) & (0xff >> tLen);
         if (track === want) {
           if (!wantAss && tracks.length) wantAss = isAss(tracks.find((t) => t.number === want)?.codec ?? '');
-          const payload = await r.bytes(h.data + tLen + 3, h.size - tLen - 3);
+          const info = tracks.find((t) => t.number === want);
+          const payload = unpack(await r.bytes(h.data + tLen + 3, h.size - tLen - 3), info);
           const rel = (head[tLen] << 8) | head[tLen + 1];
           const signed = rel > 0x7fff ? rel - 0x10000 : rel;
           const start = ((clusterTime + signed) * scale) / 1e9;
+          if (info?.codec === PGS) {
+            const rel0 = (head[tLen] << 8) | head[tLen + 1];
+            pgs ??= new PgsDecoder();
+            pgs.feed(((clusterTime + (rel0 > 0x7fff ? rel0 - 0x10000 : rel0)) * scale) / 1e9, payload);
+            pos = end;
+            continue;
+          }
           const raw = text(Buffer.from(payload));
           let clean: { text: string; italic: boolean; pos?: Cue['pos'] } | null;
           if (wantAss) clean = cleanAssText(splitLimit(raw, ',', 8)[8] ?? '');
@@ -212,6 +238,7 @@ async function walkMatroska(path: string, want?: number): Promise<{ tracks: MkvT
       pos = end;
     }
     if (current) tracks.push(current);
+    if (pgs) cues.push(...(pgs as PgsDecoder).finish());
     return { tracks, cues: cues.sort((a, b) => a.start - b.start) };
   } finally {
     await fh.close();
@@ -220,12 +247,30 @@ async function walkMatroska(path: string, want?: number): Promise<{ tracks: MkvT
 
 const label = (t: MkvTrack, n: number) => t.name || `Track ${n}`;
 
+/** Codecs Chromium cannot decode: a file whose only audio is one of these plays in silence. */
+const UNPLAYABLE_AUDIO = /^(A_(AC3|EAC3|DTS|TRUEHD|MLP)|ac-3|ec-3|dts[cehl]|mlpa)/i;
+
+/** A block's payload with the track's ContentCompression undone (zlib, or a header the muxer stripped). */
+function unpack(payload: Buffer, track: MkvTrack | undefined): Buffer {
+  if (track?.compAlgo === 0) {
+    try {
+      return inflateSync(payload);
+    } catch {
+      return payload;
+    }
+  }
+  if (track?.compAlgo === 3 && track.compSettings) return Buffer.concat([track.compSettings, payload]);
+  return Buffer.from(payload);
+}
+
 function describeMkv(tracks: MkvTrack[]): MediaTrackInfo {
-  const audio: AudioTrackInfo[] = tracks.filter((t) => t.type === 2).map((t, i) => ({ index: i, label: label(t, i + 1), language: t.language, isDefault: t.isDefault }));
+  const audio: AudioTrackInfo[] = tracks
+    .filter((t) => t.type === 2)
+    .map((t, i) => ({ index: i, label: label(t, i + 1), language: t.language, isDefault: t.isDefault, codec: t.codec, playable: !UNPLAYABLE_AUDIO.test(t.codec) }));
   const subtitles: SubtitleTrackInfo[] = tracks
     .filter((t) => t.type === 17)
-    .map((t, i) => ({ track: t.number, label: label(t, i + 1), language: t.language, codec: t.codec, isDefault: t.isDefault, supported: TEXT_CODECS.has(t.codec) }));
-  return { audio, subtitles };
+    .map((t, i) => ({ track: t.number, label: label(t, i + 1), language: t.language, codec: t.codec, isDefault: t.isDefault, supported: TEXT_CODECS.has(t.codec) || t.codec === PGS }));
+  return { audio, subtitles, videoCodec: tracks.find((t) => t.type === 1)?.codec };
 }
 
 /* ───────────────────────────── MP4 / MOV ───────────────────────────── */
@@ -348,13 +393,41 @@ function parseMp4Subtitles(moov: Buffer): Mp4Sub[] {
   return out;
 }
 
-const mp4Label = (t: Mp4Sub, n: number) => (t.name && !/handler|SubtitleHandler|Text/i.test(t.name) ? t.name : `Track ${n}`);
+const mp4Label = (t: { name: string }, n: number) => (t.name && !/handler|SubtitleHandler|Text/i.test(t.name) ? t.name : `Track ${n}`);
+
+/** Handler, sample format, language and name of every track: enough to list the audio and name the video codec. */
+function mp4Streams(moov: Buffer): { handler: string; format: string; language: string; name: string }[] {
+  const out: { handler: string; format: string; language: string; name: string }[] = [];
+  for (const trak of boxes(moov).filter((b) => b.type === 'trak')) {
+    const mdia = child(moov, trak, 'mdia');
+    const hdlr = mdia && child(moov, mdia, 'hdlr');
+    const mdhd = mdia && child(moov, mdia, 'mdhd');
+    const minf = mdia && child(moov, mdia, 'minf');
+    const stbl = minf && child(moov, minf, 'stbl');
+    const stsd = stbl && child(moov, stbl, 'stsd');
+    if (!hdlr || !mdhd || !stsd) continue;
+    const v1 = moov[mdhd.data] === 1;
+    const lang = moov.readUInt16BE(mdhd.data + (v1 ? 32 : 20));
+    out.push({
+      handler: moov.toString('latin1', hdlr.data + 8, hdlr.data + 12),
+      format: moov.toString('latin1', stsd.data + 12, stsd.data + 16),
+      language: String.fromCharCode(((lang >> 10) & 31) + 0x60, ((lang >> 5) & 31) + 0x60, (lang & 31) + 0x60),
+      name: text(moov.subarray(hdlr.data + 24, hdlr.end)).replace(/^[\x00-\x1f]+/, '').trim()
+    });
+  }
+  return out;
+}
 
 async function describeMp4(r: Reader): Promise<MediaTrackInfo> {
   const moov = await readMoov(r);
   const subs = moov ? parseMp4Subtitles(moov) : [];
+  const streams = moov ? mp4Streams(moov) : [];
+  const audio: AudioTrackInfo[] = streams
+    .filter((t) => t.handler === 'soun')
+    .map((t, i) => ({ index: i, label: mp4Label(t, i + 1), language: t.language, isDefault: i === 0, codec: t.format, playable: !UNPLAYABLE_AUDIO.test(t.format) }));
   return {
-    audio: [],
+    audio,
+    videoCodec: streams.find((t) => t.handler === 'vide')?.format,
     subtitles: subs.map((t, i) => ({ track: t.id, label: mp4Label(t, i + 1), language: t.language, codec: t.format, isDefault: i === 0, supported: t.format === 'tx3g' }))
   };
 }

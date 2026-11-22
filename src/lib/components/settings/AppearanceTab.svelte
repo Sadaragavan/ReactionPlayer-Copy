@@ -158,3 +158,31 @@
     <Switch label="Full clarity" checked={clear} onchange={(on) => settings.setWallpaperClear(on)} />
   </SettingRow>
 </Section>
+
+<Section title="Colors" intro="The accent, the tint of the text and lines, and the glow on Home. The canvas and the backgrounds stay black.">
+  <SettingRow
+    title="Colors from the wallpaper"
+    hint="Picks the accent from the colour your wallpaper is most made of, a second colour from another part of it, and tints the greys to match, the way a theme follows its wallpaper. Off: the classic black and yellow."
+  >
+    <Switch label="Colors from the wallpaper" checked={settings.settings.autoTheme} onchange={(on) => void settings.setAutoTheme(on)} />
+  </SettingRow>
+
+  {#if settings.settings.autoTheme}
+    <div class="py-4 text-[13px]" role="status">
+      {#if settings.themeStatus === 'themed'}
+        <div class="flex flex-wrap items-center gap-4">
+          <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-accent)"></span>Accent</span>
+          <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-accent-2)"></span>Second accent</span>
+          <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-fg)"></span>Text</span>
+          <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--ember)"></span>Glow</span>
+        </div>
+      {:else if settings.themeStatus === 'no-wallpaper'}
+        <p class="text-fg-2">Set a wallpaper above and its colours are used.</p>
+      {:else if settings.themeStatus === 'neutral'}
+        <p class="text-fg-2">This picture has too little colour to pick from (it is mostly grey, black or white), so the classic yellow is kept.</p>
+      {:else if settings.themeStatus === 'unreadable'}
+        <p class="text-danger">The colours of this picture could not be read, so the classic yellow is kept. A link whose website does not allow it cannot be read: upload the picture instead.</p>
+      {/if}
+    </div>
+  {/if}
+</Section>

@@ -5,6 +5,18 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Added: colours from the wallpaper
+
+- **Settings → Appearance → Colors from the wallpaper.** Like an Omarchy theme following its wallpaper: the colour the picture is most made of becomes the accent, a second, different colour
+  becomes the second accent, the text, lines and hover tones are tinted to match, and the Home glow, embers and menu underline take the colours too. The canvas and the backgrounds stay black.
+  A picture with no colour to follow (grey, black and white) keeps the classic yellow and says so. The theme is worked out once when the wallpaper changes and saved, so it is there at once on the next start.
+- Colours are chosen in OKLCH, so the accent always reads on black (it is kept at least 7:1 against it), whether the wallpaper is pale or dark.
+
+### Fixed: preferences were not being saved
+
+- On desktop, **settings were never written to disk** (playback preferences, layout, the new theme): the settings object is reactive state that Electron's IPC cannot copy, and the failed write was
+  swallowed, so only the last-session id survived a restart. Settings are now written as plain data, and a failed write is logged.
+
 ### Changed: saving a layout as a preset
 
 - The player's **Save** button saves the session (listed under Continue and Load session) and its message now offers **Save layout as preset** (or **Update preset**

@@ -43,6 +43,6 @@
   }
   /* On plain black: a faint warm light low on the left, where the menu is, so the screen is not simply empty. */
   .glow {
-    background: radial-gradient(ellipse 62% 46% at 12% 104%, rgb(255 150 50 / 0.11), transparent 70%);
+    background: radial-gradient(ellipse 62% 46% at 12% 104%, rgb(var(--ember-deep-rgb) / 0.11), transparent 70%);
   }
 </style>

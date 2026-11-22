@@ -319,7 +319,8 @@ function relaxMediaCors(): void {
   session.defaultSession.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     const headers = details.responseHeaders ?? {};
     const type = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')?.[1]?.[0] ?? '';
-    if (details.resourceType !== 'media' && !type.toLowerCase().startsWith('video/')) return callback({});
+    // Images too: the wallpaper's colours are read from its pixels, which a canvas allows only for a picture its host permits.
+    if (details.resourceType !== 'media' && details.resourceType !== 'image' && !type.toLowerCase().startsWith('video/')) return callback({});
     const next = { ...headers };
     for (const key of Object.keys(next)) {
       if (/^(access-control-allow-origin|access-control-allow-credentials|cross-origin-resource-policy)$/i.test(key)) delete next[key];

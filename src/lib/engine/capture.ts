@@ -144,11 +144,17 @@ export function composeStage(layers: StageLayer[], ratio: number, width = 480): 
       continue;
     }
     const isSource = l.role === 'source';
-    ctx.fillStyle = isSource ? 'rgb(255 212 0 / 0.14)' : 'rgb(255 255 255 / 0.07)';
-    ctx.strokeStyle = isSource ? '#ffd400' : 'rgb(255 255 255 / 0.55)';
+    ctx.fillStyle = isSource ? themeColor('--color-accent-soft', 'rgb(255 212 0 / 0.14)') : 'rgb(255 255 255 / 0.07)';
+    ctx.strokeStyle = isSource ? themeColor('--color-accent', '#ffd400') : 'rgb(255 255 255 / 0.55)';
     ctx.lineWidth = Math.max(1, canvas.width / 240);
     ctx.fillRect(box.x, box.y, box.w, box.h);
     ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1);
   }
   return canvas;
+}
+
+/** A colour from the current theme (a CSS custom property), for drawing on a canvas. */
+function themeColor(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }

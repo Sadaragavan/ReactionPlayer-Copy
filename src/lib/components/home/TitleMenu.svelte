@@ -211,7 +211,7 @@
   .streaky {
     position: relative;
     --rest: var(--paper-2);
-    --lit: #fff3d6;
+    --lit: var(--ember-core);
     color: var(--rest);
     text-align: left;
     white-space: nowrap;
@@ -226,8 +226,8 @@
     right: 0;
     bottom: 0;
     height: 2px;
-    background: linear-gradient(90deg, rgb(255 168 56 / 0.55), var(--ember-core));
-    box-shadow: 0 0 8px rgb(255 160 50 / 0.55);
+    background: linear-gradient(90deg, rgb(var(--ember-deep-rgb) / 0.6), var(--ember-core));
+    box-shadow: 0 0 8px rgb(var(--ember-rgb) / 0.55);
     transform: scaleX(0);
     transform-origin: left center;
     opacity: 0;
@@ -242,8 +242,8 @@
   .streaky:global([data-hot='true']) {
     color: var(--lit);
     text-shadow:
-      0 0 0.75em rgb(255 190 90 / 0.8),
-      0 0 0.22em rgb(255 235 190 / 0.75);
+      0 0 0.75em rgb(var(--ember-rgb) / 0.8),
+      0 0 0.22em rgb(var(--ember-hot-rgb) / 0.75);
   }
   .streaky:active {
     filter: brightness(0.9);
@@ -254,7 +254,7 @@
 
   .lead-btn {
     --rest: var(--paper);
-    --lit: #fffbe6;
+    --lit: var(--ember-core);
     isolation: isolate;
     padding: 0.12em 0.04em 0.3em 0;
     font-family: var(--font-display);
@@ -264,14 +264,14 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-shadow:
-      0 0 0.55em rgb(255 176 70 / 0.5),
-      0 0 0.14em rgb(255 214 140 / 0.5),
+      0 0 0.55em rgb(var(--ember-rgb) / 0.5),
+      0 0 0.14em rgb(var(--ember-hot-rgb) / 0.5),
       0 2px 18px rgb(0 0 0 / 0.6);
   }
   .lead-btn:global([data-hot='true']) {
     text-shadow:
-      0 0 0.7em rgb(255 186 80 / 0.75),
-      0 0 0.16em rgb(255 230 170 / 0.7),
+      0 0 0.7em rgb(var(--ember-rgb) / 0.75),
+      0 0 0.16em rgb(var(--ember-hot-rgb) / 0.7),
       0 2px 18px rgb(0 0 0 / 0.6);
   }
   /* The warm smear of light behind the word. */
@@ -280,7 +280,7 @@
     inset: -0.6em -0.7em -0.5em -0.5em;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(ellipse 55% 62% at 50% 58%, rgb(255 168 66 / 0.42), rgb(255 140 40 / 0.14) 55%, transparent 75%);
+    background: radial-gradient(ellipse 55% 62% at 50% 58%, rgb(var(--ember-rgb) / 0.42), rgb(var(--ember-deep-rgb) / 0.14) 55%, transparent 75%);
     opacity: 0.85;
     transition: opacity 220ms ease-out;
   }
@@ -308,7 +308,7 @@
     font-size: clamp(11px, 0.85vw, 16px);
     letter-spacing: 0.2em;
     --rest: var(--paper-3);
-    --lit: #ffeed0;
+    --lit: var(--ember-core);
   }
   /* ── bottom-right ── */
   .side {

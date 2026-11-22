@@ -150,6 +150,13 @@ and picture extensions. On open, `restoreSessionMedia` checks that each path sti
 In a browser the registry keeps blob URLs and File System Access handles instead. The sample clips use a `demo:source` /
 `demo:reaction` scheme (`engine/demo.ts`), so saved demo sessions survive a rebuild that changes the hashed asset names.
 
+## Colour theme
+
+All colours are CSS custom properties: Tailwind's `@theme` tokens (`--color-accent`, `--color-fg`…) and, for Home, `--ember*` and `--paper*` (with `*-rgb` triples for `rgb(var(--ember-rgb) / 0.4)`).
+`src/app.css` holds the classic values. `utils/palette.ts` picks swatches from a picture's pixels in OKLCH (hue votes weighted by chroma, dark and blown-out pixels discounted, accent lightness fixed so it
+reads on black) and builds the variables; `engine/theme.ts` samples the wallpaper on a 64 px canvas and sets or removes the properties on `<html>` (and tells the ember field). `settings.refreshTheme()` runs when the
+wallpaper or the switch changes and stores the result in `AppSettings.themeVars`, which `settings.init()` applies before anything is drawn. Main relaxes CORS for images as well as media so a linked wallpaper can be read.
+
 ## Audio tracks and subtitles
 
 Chromium's `video.audioTracks` exists only with the `AudioVideoTracks` Blink feature, which `electron/main.ts` switches on; the layer menu

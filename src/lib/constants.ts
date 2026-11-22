@@ -14,6 +14,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wallpaper: null,
   wallpaperClear: true,
   defaultLayout: 'split',
+  autoTheme: false,
+  themeVars: null,
   playback: {
     // Measured on 24 fps clips: 20 ms keeps the follower on the same frame as the master far more often than 40 ms,
     // and a nudge of under 1 % in speed is inaudible; below 20 ms it only corrects more often without getting closer.

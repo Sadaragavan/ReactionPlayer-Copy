@@ -34,6 +34,7 @@ CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds install
   (`session.mediaIdOf`). Change it only through the `session` store (`addSource`, `moveSource`, `activateSource`, `startSource` …).
 - A track Chromium cannot decode (`playable: false`) must go through `playback.refreshAudio` and the converted-audio sidecar; never assume `video.audioTracks` lists every track.
 - Subtitles are read by `electron/tracks.ts`, not by Chromium (it exposes none). Keep `AudioVideoTracks` on in `main.ts`; without it every file seems to have one audio track.
+- Colours come from the theme variables in `src/app.css` (`bg-accent`, `var(--ember-rgb)`…), never a hard-coded yellow or amber, so the wallpaper theme can recolour them. Pass plain data (not `$state` proxies) over IPC.
 - There are no plans, tiers or limits other than four videos (`MAX_VIDEOS`). Do not bring gating back.
 - Anything the page may ask of the system goes through `window.electronAPI` (`src/shared/api.ts`, `electron/preload.ts`) and must
   still have a browser fallback via `$lib/platform`. IPC handlers check the sender (`trusted` in `electron/main.ts`).

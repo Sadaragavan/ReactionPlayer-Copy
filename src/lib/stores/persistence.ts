@@ -48,8 +48,9 @@ export async function flushSettings(): Promise<void> {
   settingsTimer = null;
   try {
     await desktop.storage.writeSettings(Object.fromEntries(settingsFile));
-  } catch {
-    /* the next change tries again */
+  } catch (err) {
+    // The next change tries again. Say so, because a settings file that never updates is otherwise invisible.
+    console.warn('Could not write settings.json:', err);
   }
 }
 
@@ -79,7 +80,8 @@ export function lsGet<T>(key: string, fallback: T): T {
 
 export function lsSet(key: string, value: unknown): void {
   if (desktop) {
-    settingsFile.set(fileKey(key), value);
+    // A plain copy: callers pass pieces of Svelte state (proxies), which Electron's IPC refuses to clone, so the write would fail unseen.
+    settingsFile.set(fileKey(key), value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
     scheduleSettingsWrite();
     return;
   }

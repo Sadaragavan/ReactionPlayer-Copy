@@ -45,6 +45,10 @@
   --paper: #f7efd9;
   --paper-2: #c9c3b8;
   --paper-3: #8c8c92;
+  /* The same three as r g b triples, for rgb(var(--ember-rgb) / 0.4) in component CSS. */
+  --ember-hot-rgb: 255 243 207;
+  --ember-rgb: 255 194 77;
+  --ember-deep-rgb: 255 138 31;
 }
 
 @theme {
@@ -62,6 +66,7 @@
   --color-accent: #ffd400;
   --color-accent-soft: rgb(255 212 0 / 0.14);
   --color-accent-line: rgb(255 212 0 / 0.6);
+  --color-accent-2: #ffb347;
   --color-danger: #ff6b5e;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);

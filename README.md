@@ -109,6 +109,12 @@ While the timelines are unlinked, `Space`, `←` `→`, `,` `.` and `M` act on t
 
 In the alignment studio `,` `.` step the sampled video, `C` captures the frame, and the wipe line moves with the arrow keys (1 %, Shift for 10 %).
 
+## Colors from the wallpaper
+
+Settings → Appearance → **Colors from the wallpaper** takes the accent from your wallpaper: the colour it is most made of, a second colour from elsewhere in it,
+and matching tints for text, lines and the Home glow. The canvas and the backgrounds stay black. Grey or black-and-white pictures keep the classic yellow.
+A wallpaper pasted as a web link is read only if its website allows it; an uploaded picture always works.
+
 ## Your videos and your data
 
 - **Local videos are remembered by path.** A video you pick with the native dialog or drop on the window is stored in the

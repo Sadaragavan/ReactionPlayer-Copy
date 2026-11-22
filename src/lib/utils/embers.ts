@@ -55,16 +55,26 @@ const REST_SPEED = 6;
 const SUBDIVIDE = 4;
 
 /** `--ember-core`, `--ember`, `--ember-deep` as r,g,b triples (see src/app.css). */
-const CORE = '255,243,207';
-const AMBER = '255,194,77';
-const DEEP = '255,138,31';
+let CORE = '255,243,207';
+let AMBER = '255,194,77';
+let DEEP = '255,138,31';
 
 /** rgba() strings by alpha bucket, so a frame allocates no new strings. */
 const LEVELS = 24;
 const ramp = (rgb: string, peak: number) => Array.from({ length: LEVELS + 1 }, (_, i) => `rgba(${rgb},${((i / LEVELS) * peak).toFixed(3)})`);
-const HAZE = ramp(DEEP, 0.1);
-const BODY = ramp(AMBER, 0.42);
-const HOT = ramp(CORE, 0.98);
+let HAZE = ramp(DEEP, 0.1);
+let BODY = ramp(AMBER, 0.42);
+let HOT = ramp(CORE, 0.98);
+
+/** Changes the glow's colours (r,g,b triples as "255,243,207"); the theme calls this. */
+export function setEmberColors(core: string, amber: string, deep: string): void {
+  CORE = core;
+  AMBER = amber;
+  DEEP = deep;
+  HAZE = ramp(DEEP, 0.1);
+  BODY = ramp(AMBER, 0.42);
+  HOT = ramp(CORE, 0.98);
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 

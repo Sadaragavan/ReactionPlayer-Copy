@@ -267,6 +267,10 @@ export interface AppSettings {
   /** Layout a new session starts in. */
   defaultLayout: Exclude<LayoutType, 'custom'>;
   playback: PlaybackPrefs;
+  /** Take the accent and the other colours from the wallpaper instead of the classic black and yellow. */
+  autoTheme: boolean;
+  /** The theme worked out from the current wallpaper (CSS custom properties), kept so it applies at once on the next start. */
+  themeVars: Record<string, string> | null;
 }
 
 /* ───────────────────────────── routing ───────────────────────────── */

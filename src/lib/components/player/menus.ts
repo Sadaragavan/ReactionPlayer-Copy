@@ -9,6 +9,7 @@ import {
   AudioLines,
   ChevronDown,
   Captions,
+  Save,
   ChevronUp,
   Copy,
   ListPlus,
@@ -30,6 +31,7 @@ import { captureErrorMessage } from '$lib/engine/capture';
 import { playback } from '$lib/engine/playback.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { ui } from '$lib/stores/ui.svelte';
+import { saveLayoutAsPreset } from '$lib/engine/appActions';
 import { mediaTracks } from '$lib/engine/mediaTracks.svelte';
 import { subtitles } from '$lib/engine/subtitles.svelte';
 import { type ZOp, Z_LABEL } from '$lib/engine/zorder';
@@ -282,6 +284,7 @@ export function stageMenu(): MenuEntry[] {
       hint: locked ? 'Locked' : undefined,
       onSelect: () => s.videos.forEach((v) => session.resetLayer(v.id))
     },
+    { id: 'save-preset', label: s.presetId ? 'Update layout preset' : 'Save layout as preset', icon: Save, onSelect: () => void saveLayoutAsPreset() },
     { type: 'separator', id: 'sep-stage' },
     {
       id: 'theater',

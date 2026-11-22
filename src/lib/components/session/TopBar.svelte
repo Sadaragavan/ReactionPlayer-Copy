@@ -7,6 +7,7 @@
    */
   import { House, Keyboard, LayoutGrid, Lock, LockOpen, Maximize, Minimize, PanelRight, RectangleHorizontal, Save } from '@lucide/svelte';
   import IconButton from '$lib/components/ui/IconButton.svelte';
+  import { saveLayoutAsPreset } from '$lib/engine/appActions';
   import { playback } from '$lib/engine/playback.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
@@ -58,8 +59,9 @@
   async function saveNow() {
     const thumb = playback.thumbnail();
     if (thumb) session.setThumbnail(thumb);
-    if (await session.save()) ui.toast('Session saved.', 'success');
-    else ui.toast('Could not save the session to disk.', 'error');
+    if (await session.save()) {
+      ui.toast('Session saved. It is listed under Continue and Load session.', 'success', { label: session.current?.presetId ? 'Update preset' : 'Save layout as preset', run: () => void saveLayoutAsPreset() });
+    } else ui.toast('Could not save the session to disk.', 'error');
   }
 </script>
 

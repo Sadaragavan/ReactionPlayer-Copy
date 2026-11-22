@@ -5,6 +5,11 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Changed: saving a layout as a preset
+
+- The player's **Save** button saves the session (listed under Continue and Load session) and its message now offers **Save layout as preset** (or **Update preset**
+  when the session already has one). The same action is in the canvas right-click menu, and in the Layers panel. Saving again updates the same preset instead of adding a copy.
+
 ### Fixed: no sound, no picture subtitles, a muted reaction, and a nagging popup
 
 - **Audio that Chromium cannot decode now plays.** Many movie and anime releases carry AC-3 (Dolby Digital), E-AC-3, DTS or TrueHD audio, which

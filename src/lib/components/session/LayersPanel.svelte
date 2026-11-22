@@ -20,7 +20,8 @@
   import Slider from '$lib/components/ui/Slider.svelte';
   import { ASPECT_OPTIONS, MIN_LAYER_SIZE } from '$lib/constants';
   import { setAspect, normAspectOf } from '$lib/engine/aspect';
-  import { buildLayout, coordinatesToSlots } from '$lib/engine/layouts';
+  import { saveLayoutAsPreset } from '$lib/engine/appActions';
+  import { buildLayout } from '$lib/engine/layouts';
   import { playback } from '$lib/engine/playback.svelte';
   import { ROLE_LABEL } from '$lib/engine/sessionFactory';
   import { moveInTopFirst, videosByZ } from '$lib/engine/zorder';
@@ -127,18 +128,7 @@
     session.setStackOrder(moveInTopFirst(ids, from, ids.indexOf(target)));
   }
 
-  async function saveAsPreset() {
-    if (!s) return;
-    const saved = await presets.save({
-      name: `${s.name} layout`.slice(0, 48),
-      layoutType: s.alignment.layoutType,
-      slots: coordinatesToSlots(s.videos, s.alignment.coordinates),
-      canvasAspect: s.canvasAspect === 'fill' ? undefined : s.canvasAspect,
-      thumbnail: playback.thumbnail(320) ?? undefined
-    });
-    s.presetId = saved.id;
-    ui.toast('Layout saved as a preset.', 'success', { label: 'Open presets', run: () => router.go('presets') });
-  }
+  const saveAsPreset = saveLayoutAsPreset;
 </script>
 
 <aside

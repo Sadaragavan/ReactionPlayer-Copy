@@ -151,16 +151,34 @@ export type ThemeVars = Record<string, string>;
 
 const triple = (c: Oklch) => oklchToSrgb(c).join(' ');
 
-export function buildTheme({ accent, accent2 }: Swatches): ThemeVars {
+export interface ThemeOptions {
+  /**
+   * Keep the black base (what OLED screens want): only the accent colours and the Home glow and cursor animation change.
+   * Off: the text, lines and hover tones are tinted towards the accent as well.
+   */
+  keepBlack: boolean;
+}
+
+export function buildTheme({ accent, accent2 }: Pick<Swatches, 'accent' | 'accent2'>, options: ThemeOptions = { keepBlack: true }): ThemeVars {
   const h = accent.h;
   const ember = { l: 0.83, c: Math.min(0.17, accent.c), h };
   const core = { l: 0.97, c: 0.045, h };
   const deep = { l: 0.7, c: Math.min(0.19, accent2.c + 0.02), h: accent2.h };
-  return {
+  const accents: ThemeVars = {
     '--color-accent': css(accent),
     '--color-accent-soft': css(accent, 0.14),
     '--color-accent-line': css(accent, 0.6),
     '--color-accent-2': css(accent2),
+    '--ember-core': css(core),
+    '--ember': css(ember),
+    '--ember-deep': css(deep),
+    '--ember-hot-rgb': triple(core),
+    '--ember-rgb': triple(ember),
+    '--ember-deep-rgb': triple(deep)
+  };
+  if (options.keepBlack) return accents;
+  return {
+    ...accents,
     '--color-fg': css({ l: 0.96, c: 0.01, h }),
     '--color-fg-2': css({ l: 0.72, c: 0.016, h }),
     '--color-fg-3': css({ l: 0.52, c: 0.016, h }),
@@ -168,12 +186,6 @@ export function buildTheme({ accent, accent2 }: Swatches): ThemeVars {
     '--color-line-strong': css({ l: 0.92, c: 0.035, h }, 0.26),
     '--color-hover': css({ l: 0.92, c: 0.03, h }, 0.08),
     '--color-press': css({ l: 0.92, c: 0.035, h }, 0.15),
-    '--ember-core': css(core),
-    '--ember': css(ember),
-    '--ember-deep': css(deep),
-    '--ember-hot-rgb': triple(core),
-    '--ember-rgb': triple(ember),
-    '--ember-deep-rgb': triple(deep),
     '--paper': css({ l: 0.95, c: 0.02, h }),
     '--paper-2': css({ l: 0.8, c: 0.012, h }),
     '--paper-3': css({ l: 0.62, c: 0.01, h })
@@ -181,7 +193,7 @@ export function buildTheme({ accent, accent2 }: Swatches): ThemeVars {
 }
 
 /** Swatches and theme in one step, for a picture's pixels. `null` when the picture has no colour to follow. */
-export function themeFromPixels(data: ArrayLike<number>): { vars: ThemeVars; swatches: Swatches } | null {
+export function themeFromPixels(data: ArrayLike<number>, options: ThemeOptions = { keepBlack: true }): { vars: ThemeVars; swatches: Swatches } | null {
   const swatches = pickSwatches(data);
-  return swatches.vivid ? { vars: buildTheme(swatches), swatches } : null;
+  return swatches.vivid ? { vars: buildTheme(swatches, options), swatches } : null;
 }

@@ -111,8 +111,8 @@ In the alignment studio `,` `.` step the sampled video, `C` captures the frame, 
 
 ## Colors from the wallpaper
 
-Settings → Appearance → **Colors from the wallpaper** takes the accent from your wallpaper: the colour it is most made of, a second colour from elsewhere in it,
-and matching tints for text, lines and the Home glow. The canvas and the backgrounds stay black. Grey or black-and-white pictures keep the classic yellow.
+Settings → Appearance → **Colors from the wallpaper** (off by default; picking a wallpaper asks whether to use its colors) takes the accent from your wallpaper: the colour it is most made of, a second colour from elsewhere in it,
+and matching tints for text, lines and the Home glow. The canvas and the backgrounds stay black. **Keep the black base** (on by default, for OLED screens) changes only the accents and the glow and cursor animation; turn it off to tint the text and lines too. Grey or black-and-white pictures keep the classic yellow.
 A wallpaper pasted as a web link is read only if its website allows it; an uploaded picture always works.
 
 ## Your videos and your data

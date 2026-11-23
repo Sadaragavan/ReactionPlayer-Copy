@@ -269,8 +269,12 @@ export interface AppSettings {
   playback: PlaybackPrefs;
   /** Take the accent and the other colours from the wallpaper instead of the classic black and yellow. */
   autoTheme: boolean;
-  /** The theme worked out from the current wallpaper (CSS custom properties), kept so it applies at once on the next start. */
-  themeVars: Record<string, string> | null;
+  /** Keep the black base: with colours from the wallpaper, only the accents and the Home glow change (for OLED screens). Off also tints text and lines. */
+  themeKeepBlack: boolean;
+  /** Ask whether to use the colours when a wallpaper is picked. */
+  askThemeOnWallpaper: boolean;
+  /** The colours picked from the current wallpaper, kept so the theme applies at once on the next start without reading the picture again. */
+  themeSwatches: { accent: { l: number; c: number; h: number }; accent2: { l: number; c: number; h: number } } | null;
 }
 
 /* ───────────────────────────── routing ───────────────────────────── */

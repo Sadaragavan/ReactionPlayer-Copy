@@ -71,7 +71,7 @@
 
   async function demo() {
     await warmDemoClips();
-    session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink));
+    session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink, settings.playback.muteOthers));
     router.go('session');
   }
 </script>

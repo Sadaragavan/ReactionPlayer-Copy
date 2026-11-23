@@ -58,7 +58,7 @@ describe('picking swatches', () => {
 });
 
 describe('the theme', () => {
-  const theme = buildTheme(pickSwatches(pixels([[30, 90, 220, 800]])));
+  const theme = buildTheme(pickSwatches(pixels([[30, 90, 220, 800]])), { keepBlack: false });
   it('sets every colour the interface uses', () => {
     for (const name of ['--color-accent', '--color-accent-soft', '--color-accent-line', '--color-accent-2', '--color-fg', '--color-fg-2', '--color-fg-3', '--color-line', '--color-line-strong', '--color-hover', '--color-press', '--ember-core', '--ember', '--ember-deep', '--ember-rgb', '--ember-hot-rgb', '--ember-deep-rgb', '--paper']) {
       expect(theme[name], name).toBeTruthy();
@@ -74,5 +74,29 @@ describe('the theme', () => {
     expect(hueDistance(fg.h, srgbToOklch(30, 90, 220).h)).toBeLessThan(20);
     const m = /oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/.exec(theme['--color-fg-2'])!;
     expect(contrast(oklchToSrgb({ l: +m[1], c: +m[2], h: +m[3] }), [0, 0, 0])).toBeGreaterThan(7);
+  });
+});
+
+describe('keeping the black base', () => {
+  const swatches = pickSwatches(pixels([[30, 90, 220, 800]]));
+  const kept = buildTheme(swatches, { keepBlack: true });
+  const full = buildTheme(swatches, { keepBlack: false });
+
+  it('changes only the accents and the glow', () => {
+    expect(Object.keys(kept).sort()).toEqual(
+      ['--color-accent', '--color-accent-soft', '--color-accent-line', '--color-accent-2', '--ember-core', '--ember', '--ember-deep', '--ember-hot-rgb', '--ember-rgb', '--ember-deep-rgb'].sort()
+    );
+  });
+  it('leaves the text, lines and hover tones alone, and tints them in the full theme', () => {
+    for (const name of ['--color-fg', '--color-fg-2', '--color-fg-3', '--color-line', '--color-line-strong', '--color-hover', '--color-press', '--paper']) {
+      expect(kept[name]).toBeUndefined();
+      expect(full[name]).toBeTruthy();
+    }
+  });
+  it('makes the accent colours the same in both', () => {
+    for (const name of Object.keys(kept)) expect(full[name]).toBe(kept[name]);
+  });
+  it('is the default', () => {
+    expect(buildTheme(swatches)).toEqual(kept);
   });
 });

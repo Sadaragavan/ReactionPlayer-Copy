@@ -84,3 +84,20 @@ describe('saving and loading a playlist', () => {
     expect(Object.keys(idMap)).toHaveLength(4); // both layers, plus the two later episodes (the first shares its layer's id)
   });
 });
+
+
+describe('who is muted when a session starts', () => {
+  const base = { videos: [file('Src', 100, '/c/a.mp4'), file('Rx', 200, '/c/b.mp4'), file('Cam', 200, '/c/c.mp4')], layout: 'split' as const, linked: true };
+
+  it('hears every video by default, whichever is the master', () => {
+    for (const masterPolicy of ['source', 'reaction'] as const) {
+      const { session } = buildSession({ ...base, masterPolicy });
+      expect(session.videos.map((v) => v.muted)).toEqual([false, false, false]);
+    }
+  });
+
+  it('mutes all but the master only when asked', () => {
+    const { session } = buildSession({ ...base, masterPolicy: 'reaction', muteOthers: true });
+    expect(session.videos.map((v) => [v.role, v.muted])).toEqual([['source', true], ['reaction', false], ['extra', true]]);
+  });
+});

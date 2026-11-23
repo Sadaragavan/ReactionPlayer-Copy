@@ -16,6 +16,8 @@ class UIStore {
   shortcutsOpen = $state(false);
   /** The “Add a source” dialog (another episode for the source layer). */
   addSourceOpen = $state(false);
+  /** Set when a wallpaper with colours in it has just been picked: asks whether to use them. */
+  themeOffer = $state<{ swatches: { accent: { l: number; c: number; h: number }; accent2: { l: number; c: number; h: number } } } | null>(null);
   /** Sessions whose “play another source?” question was dismissed, keyed by session and number of sources. */
   sourcePromptDismissed = $state<Record<string, true>>({});
 

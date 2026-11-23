@@ -167,7 +167,14 @@
     <Switch label="Colors from the wallpaper" checked={settings.settings.autoTheme} onchange={(on) => void settings.setAutoTheme(on)} />
   </SettingRow>
 
+  <SettingRow title="Ask when I pick a wallpaper" hint="After you pick a wallpaper with colour in it, ask whether to use its colors.">
+    <Switch label="Ask when I pick a wallpaper" checked={settings.settings.askThemeOnWallpaper} onchange={(v) => settings.setAskThemeOnWallpaper(v)} />
+  </SettingRow>
+
   {#if settings.settings.autoTheme}
+    <SettingRow title="Keep the black base" hint="On: only the accent colours and the cursor glow change, and everything else stays black and white (best for OLED screens). Off: the text, lines and hover tones are tinted too.">
+      <Switch label="Keep the black base" checked={settings.settings.themeKeepBlack} onchange={(v) => settings.setThemeKeepBlack(v)} />
+    </SettingRow>
     <div class="py-4 text-[13px]" role="status">
       {#if settings.themeStatus === 'themed'}
         <div class="flex flex-wrap items-center gap-4">

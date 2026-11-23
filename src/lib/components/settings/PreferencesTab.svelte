@@ -96,7 +96,7 @@
 
   <SettingRow
     title="Master audio"
-    hint="Which video provides the clock and the sound when a session starts. Change it later from a video’s right-click menu."
+    hint="Which video provides the clock when a session starts (and the sound too, if “Mute the other videos” is on). Change it later from a video’s right-click menu."
   >
     <Segmented label="Master audio" options={MASTER} value={p.masterAudio} onchange={(v) => settings.patchPlayback({ masterAudio: v })} />
   </SettingRow>

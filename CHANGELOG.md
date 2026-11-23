@@ -5,6 +5,14 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Changed: wallpaper colours are opt-in, with a black-base mode
+
+- **Picking a wallpaper asks first.** If it has colour in it, a prompt previews the accent, second accent and glow and asks "Use the wallpaper's colors?". Nothing changes until you say yes, and the colours stay off by default.
+  "Do not ask again" (also in Appearance) stops the prompt.
+- **Keep the black base** (on by default, for OLED screens): only the accent colours and the Home glow and cursor animation change. Turn it off to tint the text, lines and hover tones too. Backgrounds are black either way.
+- With the colours on, a new wallpaper applies its colours straight away.
+- The Master audio hint now says the master provides the clock (and the sound only if "Mute the other videos" is on); the Demo and Load session entry points follow that preference too.
+
 ### Added: colours from the wallpaper
 
 - **Settings → Appearance → Colors from the wallpaper.** Like an Omarchy theme following its wallpaper: the colour the picture is most made of becomes the accent, a second, different colour

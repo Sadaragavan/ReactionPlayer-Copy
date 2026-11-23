@@ -78,6 +78,48 @@ export function contrast(a: [number, number, number], b: [number, number, number
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/* ── colours picked by hand ── */
+
+/** `#rgb` or `#rrggbb` (case-insensitive) to OKLCH, or null when it is not a hex colour. */
+export function hexToOklch(hex: string): Oklch | null {
+  let h = hex.trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(h)) h = [...h].map((c) => c + c).join('');
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return srgbToOklch(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
+}
+
+export function oklchToHex(color: Oklch): string {
+  return `#${oklchToSrgb(color).map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** The accent must read on black: lighter than this, and (for the second accent) not blown out to white. */
+export const MIN_ACCENT_LIGHTNESS = 0.72;
+export const MAX_ACCENT_LIGHTNESS = 0.92;
+
+/**
+ * Turns a colour the user picked into an accent: its hue and chroma are kept, its lightness is brought into the range that is
+ * readable on black (`adjusted` tells whether that changed it), and it is fitted into sRGB. Null for text that is not a colour.
+ */
+export function accentFromColor(hex: string): { accent: Oklch; adjusted: boolean } | null {
+  const c = hexToOklch(hex);
+  if (!c) return null;
+  const l = Math.min(MAX_ACCENT_LIGHTNESS, Math.max(MIN_ACCENT_LIGHTNESS, c.l));
+  return { accent: fitGamut({ l, c: c.c, h: c.h }), adjusted: Math.abs(l - c.l) > 0.005 };
+}
+
+/** The second accent that goes with an accent: a neighbour 40° round the colour wheel, a little darker. */
+export function companionAccent(accent: Oklch): Oklch {
+  return fitGamut({ l: Math.max(MIN_ACCENT_LIGHTNESS, accent.l - 0.04), c: Math.max(0.1, accent.c * 0.9), h: (accent.h + 40) % 360 });
+}
+
+/** Both accents from picked colours; the second is derived from the first unless one is given. */
+export function swatchesFromPicks(accentHex: string, accent2Hex?: string | null): { accent: Oklch; accent2: Oklch; adjusted: boolean } | null {
+  const a = accentFromColor(accentHex);
+  if (!a) return null;
+  const b = accent2Hex ? accentFromColor(accent2Hex) : null;
+  return { accent: a.accent, accent2: b?.accent ?? companionAccent(a.accent), adjusted: a.adjusted || !!b?.adjusted };
+}
+
 /* ── choosing the colours ── */
 
 export interface Swatches {

@@ -259,6 +259,8 @@ export interface PlaybackPrefs {
   sourcePromptMinutes: number;
 }
 
+export type ThemeSource = 'classic' | 'wallpaper' | 'custom';
+
 export interface AppSettings {
   /** `null` = the built-in black canvas. Wallpapers are never blurred. */
   wallpaper: Wallpaper | null;
@@ -267,8 +269,12 @@ export interface AppSettings {
   /** Layout a new session starts in. */
   defaultLayout: Exclude<LayoutType, 'custom'>;
   playback: PlaybackPrefs;
-  /** Take the accent and the other colours from the wallpaper instead of the classic black and yellow. */
-  autoTheme: boolean;
+  /** Where the colours come from: the classic black and yellow, the wallpaper, or colours picked by hand. */
+  themeSource: ThemeSource;
+  /** The accent picked by hand (a hex colour), used when `themeSource` is `custom`. */
+  customAccent: string;
+  /** The second accent picked by hand; null makes one from the accent. */
+  customAccent2: string | null;
   /** Keep the black base: with colours from the wallpaper, only the accents and the Home glow change (for OLED screens). Off also tints text and lines. */
   themeKeepBlack: boolean;
   /** Ask whether to use the colours when a wallpaper is picked. */

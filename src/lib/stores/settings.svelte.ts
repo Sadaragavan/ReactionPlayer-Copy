@@ -6,9 +6,9 @@
  */
 import { DEFAULT_SETTINGS, LS_SETTINGS } from '../constants';
 import { applyTheme, swatchesForWallpaper } from '../engine/theme';
-import { buildTheme } from '../utils/palette';
+import { buildTheme, swatchesFromPicks, type Oklch } from '../utils/palette';
 import { ui } from './ui.svelte';
-import type { AppSettings, PlaybackPrefs, Wallpaper } from '../types';
+import type { AppSettings, PlaybackPrefs, ThemeSource, Wallpaper } from '../types';
 import { loadWallpaper, lsGet, lsSet, removeWallpaper, saveWallpaper } from './persistence';
 
 class SettingsStore {
@@ -17,7 +17,7 @@ class SettingsStore {
   /** False when the wallpaper could not be kept (a full disk, a blocked browser store). */
   wallpaperPersisted = $state(true);
   /** What the last attempt to take colours from the wallpaper found. */
-  themeStatus = $state<'off' | 'themed' | 'neutral' | 'unreadable' | 'no-wallpaper'>('off');
+  themeStatus = $state<'off' | 'themed' | 'custom' | 'neutral' | 'unreadable' | 'no-wallpaper'>('off');
 
   get playback(): PlaybackPrefs {
     return this.settings.playback;
@@ -27,7 +27,10 @@ class SettingsStore {
   }
 
   async init(): Promise<void> {
-    const stored = lsGet<Partial<AppSettings>>(LS_SETTINGS, {});
+    const stored = lsGet<Partial<AppSettings> & { autoTheme?: boolean }>(LS_SETTINGS, {});
+    // Settings saved before colours could be picked by hand had a plain on/off switch for the wallpaper colours.
+    if (stored.autoTheme && !stored.themeSource) stored.themeSource = 'wallpaper';
+    delete stored.autoTheme;
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...stored,
@@ -37,7 +40,7 @@ class SettingsStore {
     this.settings.wallpaper = await loadWallpaper();
     // Apply the saved theme before anything is drawn; work it out again only if there is none yet.
     this.#applyStored();
-    if (this.settings.autoTheme && !this.settings.themeSwatches) await this.refreshTheme();
+    if (this.settings.themeSource === 'wallpaper' && !this.settings.themeSwatches) await this.refreshTheme();
     this.ready = true;
   }
 
@@ -73,14 +76,28 @@ class SettingsStore {
     const kept = await saveWallpaper(wallpaper);
     this.wallpaperPersisted = kept !== null;
     this.settings.wallpaper = kept ?? wallpaper;
-    if (this.settings.autoTheme) await this.refreshTheme();
+    if (this.settings.themeSource === 'wallpaper') await this.refreshTheme();
     else void this.offerTheme();
   }
 
-  /** Turns “colours from the wallpaper” on or off. */
-  async setAutoTheme(on: boolean): Promise<void> {
-    this.settings.autoTheme = on;
+  /** Where the colours come from: the classic yellow, the wallpaper, or colours picked by hand. */
+  async setThemeSource(source: ThemeSource): Promise<void> {
+    this.settings.themeSource = source;
     await this.refreshTheme();
+  }
+
+  /** Sets a colour picked by hand and applies it at once (it can be called as a picker is dragged). `null` for the second accent makes one from the first. */
+  setCustomAccent(which: 'accent' | 'accent2', hex: string | null): void {
+    if (which === 'accent') {
+      if (hex) this.settings.customAccent = hex;
+    } else this.settings.customAccent2 = hex;
+    this.#applyStored();
+    this.#persist();
+  }
+
+  /** The accents picked by hand, as the theme will use them. `adjusted`: one was made lighter so it reads on black. */
+  get customSwatches() {
+    return swatchesFromPicks(this.settings.customAccent, this.settings.customAccent2);
   }
 
   /** Keep the black base (accents and glow only) or tint the text, lines and hover tones too. Does not read the picture again. */
@@ -95,32 +112,39 @@ class SettingsStore {
     this.#persist();
   }
 
-  /** The theme the stored swatches make, or null when the theme is off. */
-  #vars() {
-    const { autoTheme, themeSwatches, themeKeepBlack } = this.settings;
-    return autoTheme && themeSwatches ? buildTheme(themeSwatches, { keepBlack: themeKeepBlack }) : null;
+  /** The two accents the current source gives, or null for the classic look. */
+  #swatches(): { accent: Oklch; accent2: Oklch } | null {
+    const { themeSource, themeSwatches } = this.settings;
+    if (themeSource === 'wallpaper') return themeSwatches;
+    if (themeSource === 'custom') return this.customSwatches;
+    return null;
   }
 
   #applyStored(): void {
-    const vars = this.#vars();
-    applyTheme(vars);
-    this.themeStatus = !this.settings.autoTheme ? 'off' : vars ? 'themed' : this.themeStatus === 'themed' ? 'no-wallpaper' : this.themeStatus;
+    const sw = this.#swatches();
+    applyTheme(sw ? buildTheme(sw, { keepBlack: this.settings.themeKeepBlack }) : null);
+    const source = this.settings.themeSource;
+    this.themeStatus = source === 'classic' ? 'off' : source === 'custom' ? 'custom' : sw ? 'themed' : this.themeStatus === 'themed' ? 'no-wallpaper' : this.themeStatus;
   }
 
   /**
-   * Reads the current wallpaper's colours and applies them. With the setting off, or no wallpaper, or a wallpaper that has no
-   * colour to follow or cannot be read, the classic look is used.
+   * Applies the theme. For the wallpaper that means reading its colours; with no wallpaper, or one with no colour to follow or that
+   * cannot be read, the classic look is used.
    */
   async refreshTheme(): Promise<void> {
+    if (this.settings.themeSource !== 'wallpaper') {
+      this.#applyStored();
+      this.#persist();
+      return;
+    }
     const wp = this.settings.wallpaper;
-    if (!this.settings.autoTheme) this.themeStatus = 'off';
-    else if (!wp) this.themeStatus = 'no-wallpaper';
+    if (!wp) this.themeStatus = 'no-wallpaper';
     else {
       const outcome = await swatchesForWallpaper(wp.url);
       if (outcome.kind === 'themed') {
         this.settings.themeSwatches = { accent: outcome.swatches.accent, accent2: outcome.swatches.accent2 };
+        this.#applyStored();
         this.themeStatus = 'themed';
-        applyTheme(this.#vars());
         this.#persist();
         return;
       }
@@ -131,10 +155,10 @@ class SettingsStore {
     this.#persist();
   }
 
-  /** After a wallpaper is picked while the colours are off: works out its colours and, if there are any, asks whether to use them. */
+  /** After a wallpaper is picked while the colours are classic: works out its colours and, if there are any, asks whether to use them. */
   async offerTheme(): Promise<void> {
     const wp = this.settings.wallpaper;
-    if (!wp || this.settings.autoTheme || !this.settings.askThemeOnWallpaper) return;
+    if (!wp || this.settings.themeSource !== 'classic' || !this.settings.askThemeOnWallpaper) return;
     const outcome = await swatchesForWallpaper(wp.url);
     if (outcome.kind === 'themed') ui.themeOffer = { swatches: { accent: outcome.swatches.accent, accent2: outcome.swatches.accent2 } };
   }
@@ -144,12 +168,12 @@ class SettingsStore {
     const offer = ui.themeOffer;
     ui.themeOffer = null;
     if (!offer) return;
-    this.settings.autoTheme = true;
+    this.settings.themeSource = 'wallpaper';
     this.settings.themeKeepBlack = keepBlack;
     this.settings.themeSwatches = offer.swatches;
     this.settings.askThemeOnWallpaper = !dontAskAgain;
+    this.#applyStored();
     this.themeStatus = 'themed';
-    applyTheme(this.#vars());
     this.#persist();
   }
 

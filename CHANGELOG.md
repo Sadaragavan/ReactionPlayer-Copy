@@ -5,6 +5,14 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Added: a colour picker
+
+- **Settings → Appearance → Colors** now chooses where the colours come from: **Classic**, **From wallpaper**, or **Custom**.
+- **Custom** has a picker for the accent and one for the second accent: a swatch that opens the system colour picker, a hex field (`#rgb` or `#rrggbb`), quick colours (including the two found in your wallpaper),
+  and an **eyedropper** that reads any pixel on the screen. Changes apply live. The second accent can be left to the app, which makes one 40° round the colour wheel from the accent.
+- A colour too dark to read on black is made lighter (keeping its hue), and the page says so. "Keep the black base" works with Custom as well.
+- Older saves that had the wallpaper switch on keep it on (it becomes the "From wallpaper" choice).
+
 ### Changed: wallpaper colours are opt-in, with a black-base mode
 
 - **Picking a wallpaper asks first.** If it has colour in it, a prompt previews the accent, second accent and glow and asks "Use the wallpaper's colors?". Nothing changes until you say yes, and the colours stay off by default.

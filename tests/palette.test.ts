@@ -100,3 +100,48 @@ describe('keeping the black base', () => {
     expect(buildTheme(swatches)).toEqual(kept);
   });
 });
+
+describe('colours picked by hand', async () => {
+  const { hexToOklch, oklchToHex, accentFromColor, companionAccent, swatchesFromPicks, MIN_ACCENT_LIGHTNESS } = await import('../src/lib/utils/palette');
+
+  it('reads hex colours in three and six digits, with or without the hash', () => {
+    expect(hexToOklch('#ffffff')?.l).toBeCloseTo(1, 2);
+    expect(hexToOklch('000')?.l).toBeCloseTo(0, 3);
+    expect(hexToOklch('f00')).toEqual(hexToOklch('#ff0000'));
+    expect(hexToOklch('#12345')).toBeNull();
+    expect(hexToOklch('red')).toBeNull();
+    expect(hexToOklch('#gggggg')).toBeNull();
+  });
+
+  it('writes hex that reads back as the same colour', () => {
+    for (const hex of ['#7aa2ff', '#ffd400', '#5eead4', '#b57bff']) expect(oklchToHex(hexToOklch(hex)!)).toBe(hex);
+  });
+
+  it('keeps hue and chroma and lightens a dark colour so it reads on black', () => {
+    const picked = hexToOklch('#1a2a8c')!;
+    const r = accentFromColor('#1a2a8c')!;
+    expect(r.adjusted).toBe(true);
+    expect(r.accent.l).toBeGreaterThanOrEqual(MIN_ACCENT_LIGHTNESS);
+    expect(hueDistance(r.accent.h, picked.h)).toBeLessThan(2);
+    expect(contrast(oklchToSrgb(r.accent), [0, 0, 0])).toBeGreaterThan(7);
+  });
+
+  it('leaves a colour that already reads on black alone', () => {
+    const r = accentFromColor('#7aa2ff')!;
+    expect(r.adjusted).toBe(false);
+    expect(oklchToHex(r.accent)).toBe('#7aa2ff');
+  });
+
+  it('accepts white and grey as accents, and refuses what is not a colour', () => {
+    expect(accentFromColor('#ffffff')?.accent.c).toBeLessThan(0.02);
+    expect(accentFromColor('nope')).toBeNull();
+  });
+
+  it('makes a second accent 40° away unless one is picked', () => {
+    const a = accentFromColor('#7aa2ff')!.accent;
+    expect(hueDistance(companionAccent(a).h, a.h)).toBeCloseTo(40, 0);
+    const s = swatchesFromPicks('#7aa2ff', '#ff6b6b')!;
+    expect(hueDistance(s.accent2.h, hexToOklch('#ff6b6b')!.h)).toBeLessThan(2);
+    expect(swatchesFromPicks('zzz')).toBeNull();
+  });
+});

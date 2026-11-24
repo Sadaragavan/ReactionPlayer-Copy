@@ -39,8 +39,8 @@ class AudioProxy {
       return url;
     } catch (err) {
       this.#waiting.get(key)?.delete(layerId);
-      this.status[layerId] = { fraction: 0, error: err instanceof Error ? err.message : 'The audio could not be converted.' };
-      ui.toast(`“${title}” has audio this player cannot decode, and converting it failed, so it plays without sound.`, 'error');
+      this.status[layerId] = { fraction: 0, error: err instanceof Error ? err.message : 'The audio conversion failed.' };
+      ui.toast(`Couldn’t convert the audio of “${title}”, so it plays without sound.`, 'error');
       return null;
     }
   }

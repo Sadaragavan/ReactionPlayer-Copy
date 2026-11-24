@@ -39,7 +39,7 @@
     if (!s) return;
     if (!s.isLinked) return session.activateSource(i);
     const start = spans[i]?.start;
-    if (start === null || start === undefined) return ui.toast('That episode has not been started yet. Start it when the reaction reaches it.', 'info');
+    if (start === null || start === undefined) return ui.toast('That episode hasn’t started yet. Start it when the reaction gets there.', 'info');
     playback.seek(start);
   }
 
@@ -58,7 +58,7 @@
   </div>
 
   {#if items.length < 2}
-    <p class="mt-1.5 text-[12px] leading-snug text-fg-3">One source. Reacting to more than one episode? Add the next one and they play in this layer, one after another.</p>
+    <p class="mt-1.5 text-[12px] leading-snug text-fg-3">One source. Reacting to several episodes? Add them and they play here, one after another.</p>
   {:else}
     <ol class="mt-2 flex flex-col">
       {#each items as it, i (it.id)}

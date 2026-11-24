@@ -24,7 +24,7 @@
   import LayoutStep from './LayoutStep.svelte';
   import VideoSlot, { type SlotData } from './VideoSlot.svelte';
 
-  const HINTS = ['The video being reacted to. It always sits on top.', 'Your reaction footage.', 'An extra angle.', 'An extra angle.'];
+  const HINTS = ['The video being reacted to.', 'Your reaction footage.', 'An extra angle.', 'An extra angle.'];
 
   let step = $state<1 | 2>(1);
   let slots = $state<(SlotData | null)[]>([null, null, null, null]);
@@ -73,7 +73,7 @@
       const r = await probeVideo(src);
       if (same()) arr()[i] = { ...base, duration: r.duration, width: r.width, height: r.height, thumb: r.thumb };
     } catch (err) {
-      if (same()) arr()[i] = { ...base, error: err instanceof Error ? err.message : 'Could not read this video.' };
+      if (same()) arr()[i] = { ...base, error: err instanceof Error ? err.message : 'Couldn’t read this video.' };
     }
   }
 
@@ -92,7 +92,7 @@
       u = new URL(raw);
       if (!/^https?:$/.test(u.protocol)) throw new Error('protocol');
     } catch {
-      ui.toast('That is not a web link. Start it with https://', 'error');
+      ui.toast('That isn’t a web link. It should start with https://', 'error');
       return;
     }
     const tail = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() ?? '') || u.hostname;

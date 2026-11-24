@@ -1,10 +1,10 @@
 /**
- * Picks a colour theme from a picture, the way an Omarchy theme follows its wallpaper: the colour the picture is most
- * made of becomes the accent, a second, different colour becomes the second accent, and the greys of the interface are
+ * Picks a color theme from a picture, the way an Omarchy theme follows its wallpaper: the color the picture is most
+ * made of becomes the accent, a second, different color becomes the second accent, and the grays of the interface are
  * tinted towards the accent. Backgrounds stay black: the canvas is the product.
  *
  * All the maths is in OKLCH (lightness, chroma, hue), where equal steps look equal, so a pale pastel wallpaper and a dark
- * saturated one both give an accent that is readable on black and clearly coloured. Pure functions, no DOM.
+ * saturated one both give an accent that is readable on black and clearly colored. Pure functions, no DOM.
  */
 
 export interface Oklch {
@@ -47,7 +47,7 @@ function oklchToLinear({ l, c, h }: Oklch): [number, number, number] {
 
 const inGamut = (rgb: number[]) => rgb.every((v) => v >= -0.0005 && v <= 1.0005);
 
-/** The colour with its chroma lowered until it fits in sRGB, so what is described is what is shown. */
+/** The color with its chroma lowered until it fits in sRGB, so what is described is what is shown. */
 export function fitGamut(color: Oklch): Oklch {
   if (inGamut(oklchToLinear(color))) return color;
   let lo = 0;
@@ -71,16 +71,16 @@ const css = (color: Oklch, alpha?: number) => {
   return `oklch(${f.l.toFixed(3)} ${f.c.toFixed(3)} ${(((f.h % 360) + 360) % 360).toFixed(1)}${alpha === undefined ? '' : ` / ${alpha}`})`;
 };
 
-/** Contrast ratio between two sRGB colours (WCAG): 1 to 21. */
+/** Contrast ratio between two sRGB colors (WCAG): 1 to 21. */
 export function contrast(a: [number, number, number], b: [number, number, number]): number {
   const lum = ([r, g, bl]: [number, number, number]) => 0.2126 * toLinear(r / 255) + 0.7152 * toLinear(g / 255) + 0.0722 * toLinear(bl / 255);
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/* ── colours picked by hand ── */
+/* ── colors picked by hand ── */
 
-/** `#rgb` or `#rrggbb` (case-insensitive) to OKLCH, or null when it is not a hex colour. */
+/** `#rgb` or `#rrggbb` (case-insensitive) to OKLCH, or null when it is not a hex color. */
 export function hexToOklch(hex: string): Oklch | null {
   let h = hex.trim().replace(/^#/, '');
   if (/^[0-9a-f]{3}$/i.test(h)) h = [...h].map((c) => c + c).join('');
@@ -97,8 +97,8 @@ export const MIN_ACCENT_LIGHTNESS = 0.72;
 export const MAX_ACCENT_LIGHTNESS = 0.92;
 
 /**
- * Turns a colour the user picked into an accent: its hue and chroma are kept, its lightness is brought into the range that is
- * readable on black (`adjusted` tells whether that changed it), and it is fitted into sRGB. Null for text that is not a colour.
+ * Turns a color the user picked into an accent: its hue and chroma are kept, its lightness is brought into the range that is
+ * readable on black (`adjusted` tells whether that changed it), and it is fitted into sRGB. Null for text that is not a color.
  */
 export function accentFromColor(hex: string): { accent: Oklch; adjusted: boolean } | null {
   const c = hexToOklch(hex);
@@ -107,12 +107,12 @@ export function accentFromColor(hex: string): { accent: Oklch; adjusted: boolean
   return { accent: fitGamut({ l, c: c.c, h: c.h }), adjusted: Math.abs(l - c.l) > 0.005 };
 }
 
-/** The second accent that goes with an accent: a neighbour 40° round the colour wheel, a little darker. */
+/** The second accent that goes with an accent: a neighbour 40° round the color wheel, a little darker. */
 export function companionAccent(accent: Oklch): Oklch {
   return fitGamut({ l: Math.max(MIN_ACCENT_LIGHTNESS, accent.l - 0.04), c: Math.max(0.1, accent.c * 0.9), h: (accent.h + 40) % 360 });
 }
 
-/** Both accents from picked colours; the second is derived from the first unless one is given. */
+/** Both accents from picked colors; the second is derived from the first unless one is given. */
 export function swatchesFromPicks(accentHex: string, accent2Hex?: string | null): { accent: Oklch; accent2: Oklch; adjusted: boolean } | null {
   const a = accentFromColor(accentHex);
   if (!a) return null;
@@ -120,12 +120,12 @@ export function swatchesFromPicks(accentHex: string, accent2Hex?: string | null)
   return { accent: a.accent, accent2: b?.accent ?? companionAccent(a.accent), adjusted: a.adjusted || !!b?.adjusted };
 }
 
-/* ── choosing the colours ── */
+/* ── choosing the colors ── */
 
 export interface Swatches {
   accent: Oklch;
   accent2: Oklch;
-  /** False when the picture has too little colour to pick from (greys, black and white): the classic yellow is kept. */
+  /** False when the picture has too little color to pick from (grays, black and white): the classic yellow is kept. */
   vivid: boolean;
 }
 
@@ -134,23 +134,23 @@ const BIN = 360 / BINS;
 const angle = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
 
 /**
- * `data` is RGBA pixels, as from a canvas. Every pixel votes for its hue with the strength of its chroma (greys do not vote),
- * dark and blown-out pixels vote less (they look like shadow and sky, not like the picture's colour), and neighbouring
- * hues share their votes so one colour split across two bins still wins.
+ * `data` is RGBA pixels, as from a canvas. Every pixel votes for its hue with the strength of its chroma (grays do not vote),
+ * dark and blown-out pixels vote less (they look like shadow and sky, not like the picture's color), and neighbouring
+ * hues share their votes so one color split across two bins still wins.
  */
 export function pickSwatches(data: ArrayLike<number>): Swatches {
   const weight = new Float64Array(BINS);
   const chroma = new Float64Array(BINS);
   const hx = new Float64Array(BINS);
   const hy = new Float64Array(BINS);
-  let colourful = 0;
+  let colorful = 0;
   let seen = 0;
   for (let i = 0; i + 3 < data.length; i += 4) {
     if (data[i + 3] < 128) continue;
     const { l, c, h } = srgbToOklch(data[i], data[i + 1], data[i + 2]);
     seen++;
     if (c < 0.03) continue;
-    colourful++;
+    colorful++;
     const visible = l < 0.15 || l > 0.97 ? 0.15 : l < 0.28 || l > 0.92 ? 0.55 : 1;
     const w = c * visible;
     const bin = Math.floor(h / BIN) % BINS;
@@ -160,7 +160,7 @@ export function pickSwatches(data: ArrayLike<number>): Swatches {
     hy[bin] += Math.sin((h * Math.PI) / 180) * w;
   }
   const fallback: Swatches = { accent: { l: 0.87, c: 0.18, h: 95 }, accent2: { l: 0.78, c: 0.16, h: 55 }, vivid: false };
-  if (!seen || colourful / seen < 0.04) return fallback;
+  if (!seen || colorful / seen < 0.04) return fallback;
 
   const score = Array.from({ length: BINS }, (_, i) => weight[i] + 0.5 * (weight[(i + BINS - 1) % BINS] + weight[(i + 1) % BINS]));
   const describe = (bin: number) => {
@@ -174,7 +174,7 @@ export function pickSwatches(data: ArrayLike<number>): Swatches {
   const best = score.indexOf(Math.max(...score));
   if (score[best] <= 0) return fallback;
   const a = describe(best);
-  // A second colour at least 60° away, if the picture has one worth the name; otherwise a neighbour on the colour wheel.
+  // A second color at least 60° away, if the picture has one worth the name; otherwise a neighbour on the color wheel.
   let second = -1;
   for (let i = 0; i < BINS; i++) {
     if (angle(i * BIN + BIN / 2, a.hue) < 60 || score[i] < score[best] * 0.25) continue;
@@ -195,7 +195,7 @@ const triple = (c: Oklch) => oklchToSrgb(c).join(' ');
 
 export interface ThemeOptions {
   /**
-   * Keep the black base (what OLED screens want): only the accent colours and the Home glow and cursor animation change.
+   * Keep the black base (what OLED screens want): only the accent colors and the Home glow and cursor animation change.
    * Off: the text, lines and hover tones are tinted towards the accent as well.
    */
   keepBlack: boolean;
@@ -234,7 +234,7 @@ export function buildTheme({ accent, accent2 }: Pick<Swatches, 'accent' | 'accen
   };
 }
 
-/** Swatches and theme in one step, for a picture's pixels. `null` when the picture has no colour to follow. */
+/** Swatches and theme in one step, for a picture's pixels. `null` when the picture has no color to follow. */
 export function themeFromPixels(data: ArrayLike<number>, options: ThemeOptions = { keepBlack: true }): { vars: ThemeVars; swatches: Swatches } | null {
   const swatches = pickSwatches(data);
   return swatches.vivid ? { vars: buildTheme(swatches, options), swatches } : null;

@@ -75,7 +75,7 @@
 <Section title="Sync engine" intro="How the videos are kept together while they play.">
   <SettingRow
     title="Sync tolerance"
-    hint="How far a video may drift from the shared clock before the player corrects it. Lower is tighter, but the speed is nudged more often."
+    hint="How far a video can drift from the shared clock before it is corrected. Lower is tighter but adjusts speed more often."
   >
     <div class="w-40 max-sm:flex-1">
       <Slider label="Sync tolerance in milliseconds" min={5} max={200} step={5} value={p.syncToleranceMs} oninput={(v) => settings.patchPlayback({ syncToleranceMs: v })} />
@@ -96,21 +96,21 @@
 
   <SettingRow
     title="Master audio"
-    hint="Which video provides the clock when a session starts (and the sound too, if “Mute the other videos” is on). Change it later from a video’s right-click menu."
+    hint="Which video provides the clock in a new session (and the sound, if “Mute the other videos” is on). Change it later from a video’s right-click menu."
   >
     <Segmented label="Master audio" options={MASTER} value={p.masterAudio} onchange={(v) => settings.patchPlayback({ masterAudio: v })} />
   </SettingRow>
 
   <SettingRow
     title="Keep the sound going"
-    hint="If the master video is shorter or starts later, you hear the next video that has footage until the master picks up again."
+    hint="If the master video is shorter or starts later, you hear the next video with footage until the master picks up again."
   >
     <Switch label="Keep the sound going without the master" checked={p.audioFollowsFootage} onchange={(v) => settings.patchPlayback({ audioFollowsFootage: v })} />
   </SettingRow>
 
   <SettingRow
     title="Hardware acceleration"
-    hint="Composites each layer on the GPU. Auto does it only while something plays. The browser always picks the decoder itself."
+    hint="Composites each layer on the GPU. Auto does it only while something plays. The video decoder is always chosen by Chromium."
   >
     <Segmented label="Hardware acceleration" options={ACCEL} value={p.hardwareAcceleration} onchange={(v) => settings.patchPlayback({ hardwareAcceleration: v })} />
   </SettingRow>
@@ -119,8 +119,8 @@
     <SettingRow
       title="Video decoding"
       hint={hardwareDecode
-        ? 'The graphics chip decodes video, which leaves the processor free for the sync engine.'
-        : 'The processor is decoding video. Two videos at once can stutter on a laptop; updating the graphics driver usually turns hardware decoding on.'}
+        ? 'The graphics chip decodes video, leaving the processor free for syncing.'
+        : 'The processor is decoding video, so two videos at once can stutter on a laptop. Updating your graphics driver usually turns on hardware decoding.'}
     >
       <span class="text-[13px] {hardwareDecode ? 'text-fg-2' : 'text-accent'}">{hardwareDecode ? 'Hardware' : 'Software'}{gpu.renderer ? ` · ${gpu.renderer}` : ''}</span>
     </SettingRow>
@@ -128,15 +128,15 @@
 </Section>
 
 <Section title="Playback" intro="What a new session starts with.">
-  <SettingRow title="Start linked" hint="One shared timeline for every video. Unlink to line each one up on its own.">
+  <SettingRow title="Start linked" hint="One shared timeline for every video. Unlink to line each one up separately.">
     <Switch label="Start new sessions linked" checked={p.autoLink} onchange={(v) => settings.patchPlayback({ autoLink: v })} />
   </SettingRow>
 
-  <SettingRow title="Mute the other videos" hint="Off: every video is heard, the reaction as well as the source. On: new sessions play only the master's audio (change it any time from a layer's menu).">
+  <SettingRow title="Mute the other videos" hint="Off: every video is heard, including the reaction. On: new sessions play only the master’s audio (change it any time from a video’s menu).">
     <Switch label="Mute every video but the master in new sessions" checked={p.muteOthers} onchange={(v) => settings.patchPlayback({ muteOthers: v })} />
   </SettingRow>
 
-  <SettingRow title="Ask about another source" hint="When the reaction runs longer than the source by more than this, the player asks whether to add another source. 0 turns the question off.">
+  <SettingRow title="Ask about another source" hint="Asks whether to add another source when the reaction runs this many minutes past the source. 0 turns it off.">
     <NumberField class="w-24" caption="min" label="Minutes past the source before asking" value={p.sourcePromptMinutes} min={0} max={600} step={1} digits={0} onchange={(v) => settings.patchPlayback({ sourcePromptMinutes: Math.round(v) })} />
   </SettingRow>
 
@@ -162,12 +162,12 @@
     <Switch label="Keep controls visible while paused" checked={p.keepHudWhilePaused} onchange={(v) => settings.patchPlayback({ keepHudWhilePaused: v })} />
   </SettingRow>
 
-  <SettingRow title="Keyboard shortcuts" hint="Space, L, T, F, [ and ] for layer order, the arrows and more. Press ? anywhere to see them.">
+  <SettingRow title="Keyboard shortcuts" hint="Space, L, T, F, N, [ and ], the arrows and more. Press ? anywhere to see them.">
     <Button variant="secondary" icon={Keyboard} onclick={() => (ui.shortcutsOpen = true)}>Show shortcuts</Button>
   </SettingRow>
 </Section>
 
-<Section title="This computer" intro={desktop ? 'Sessions, presets, settings and the wallpaper are plain files in the app’s data folder. Nothing leaves this computer.' : 'Sessions, presets and settings live in this browser only.'}>
+<Section title="This computer" intro={desktop ? 'Sessions, presets, settings and the wallpaper are files in the app’s data folder. Nothing leaves this computer.' : 'Sessions, presets and settings live in this browser only.'}>
   {#if desktop}
     <SettingRow title="Data folder" hint="Where settings.json, presets.json and your sessions are kept.">
       <Button variant="secondary" icon={FolderOpen} onclick={() => void desktop?.revealDataFolder()}>Open folder</Button>
@@ -177,7 +177,7 @@
     <Button variant="secondary" icon={RotateCcw} onclick={() => (confirm = 'reset')}>Reset settings</Button>
   </SettingRow>
 
-  <SettingRow title="Clear all data" hint="Deletes every saved session, preset, the wallpaper and your settings from this computer. Your video files are not touched.">
+  <SettingRow title="Clear all data" hint="Deletes every saved session and preset, the wallpaper and your settings from this computer. Your video files are not touched.">
     <Button variant="danger" icon={Trash} onclick={() => (confirm = 'wipe')}>Clear all data</Button>
   </SettingRow>
 </Section>

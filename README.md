@@ -111,8 +111,8 @@ In the alignment studio `,` `.` step the sampled video, `C` captures the frame, 
 
 ## Colors from the wallpaper
 
-Settings → Appearance → **Colors** chooses between the classic yellow, **From wallpaper** (off by default; picking a wallpaper asks whether to use its colors) and **Custom**, which has a colour picker (system picker, hex field, quick colours and an eyedropper) for the accent and the second accent. From the wallpaper, the app takes the accent from your wallpaper: the colour it is most made of, a second colour from elsewhere in it,
-and matching tints for text, lines and the Home glow. The canvas and the backgrounds stay black. **Keep the black base** (on by default, for OLED screens) changes only the accents and the glow and cursor animation; turn it off to tint the text and lines too. Grey or black-and-white pictures keep the classic yellow.
+Settings → Appearance → **Colors** chooses between the classic yellow, **From wallpaper** (off by default; picking a wallpaper asks whether to use its colors) and **Custom**, which has a color picker (system picker, hex field, quick colors and an eyedropper) for the accent and the second accent. From the wallpaper, the app takes the accent from your wallpaper: the color it is most made of, a second color from elsewhere in it,
+and matching tints for text, lines and the Home glow. The canvas and the backgrounds stay black. **Keep the black base** (on by default, for OLED screens) changes only the accents and the glow and cursor animation; turn it off to tint the text and lines too. Gray or black-and-white pictures keep the classic yellow.
 A wallpaper pasted as a web link is read only if its website allows it; an uploaded picture always works.
 
 ## Your videos and your data
@@ -148,7 +148,7 @@ Chromium decodes H.264, VP8, VP9, AV1 and (through the graphics chip, when the s
 whether the graphics chip or the processor is decoding. On Windows, HEVC/H.265 files need "HEVC Video Extensions" from the Microsoft Store and a graphics chip
 that supports it; otherwise use an H.264 copy. Two 1080p videos decoded by the processor alone can stutter on a thin laptop: update the graphics driver first.
 
-ffmpeg comes from the `@ffmpeg-installer/ffmpeg` package, a GPL build, so the installers are larger by about 70 MB and carry its licence.
+ffmpeg comes from the `@ffmpeg-installer/ffmpeg` package, a GPL build, so the installers are larger by about 70 MB and carry its license.
 
 ## Project layout
 
@@ -161,7 +161,7 @@ electron/
 src/
   shared/                           the IPC contract (api.ts) and local-media URL helpers, used by both sides
   App.svelte, main.ts, app.css      shell, global layers, design tokens (@theme) and base styles
-  assets/demo/                      the two sample clips; fonts/ holds Archivo (variable width) and Cinzel, with their licences
+  assets/demo/                      the two sample clips; fonts/ holds Archivo (variable width) and Cinzel, with their licenses
   lib/
     pages/                          Home, Session, Presets, Sessions, Settings
     components/                     home, player, presets, session, sessions, settings, shell, ui

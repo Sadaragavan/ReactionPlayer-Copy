@@ -37,7 +37,7 @@ describe('run-length coding', () => {
   });
 });
 
-describe('colour', () => {
+describe('color', () => {
   it('turns limited-range white, black and red into the right RGB', () => {
     expect(ycrcbToRgb(235, 128, 128, true)).toEqual([255, 255, 255]);
     expect(ycrcbToRgb(16, 128, 128, true)).toEqual([0, 0, 0]);

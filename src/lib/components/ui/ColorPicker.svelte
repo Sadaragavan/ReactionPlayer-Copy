@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
-   * A colour picker for one colour: a swatch that opens the system picker, a hex field, quick colours, and (where the browser has
+   * A color picker for one color: a swatch that opens the system picker, a hex field, quick colors, and (where the browser has
    * one) an eyedropper that reads any pixel on the screen. It reports every change, so a theme can follow a drag live.
    */
   import { Pipette } from '@lucide/svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { hexToOklch } from '$lib/utils/palette';
   import IconButton from './IconButton.svelte';
 
@@ -12,7 +13,7 @@
     /** `#rrggbb`. */
     value: string;
     onchange: (hex: string) => void;
-    /** Extra quick colours shown first, such as the wallpaper's. */
+    /** Extra quick colors shown first, such as the wallpaper's. */
     suggestions?: { hex: string; title: string }[];
   }
 
@@ -41,21 +42,22 @@
     try {
       const { sRGBHex } = await new (window as unknown as { EyeDropper: new () => { open(): Promise<{ sRGBHex: string }> } }).EyeDropper().open();
       commit(sRGBHex);
-    } catch {
-      /* cancelled with Escape */
+    } catch (err) {
+      // Escape closes the eyedropper: not an error. Anything else means the system would not let the app read the screen.
+      if (!(err instanceof DOMException && err.name === 'AbortError')) ui.toast('Couldn’t read the screen here. Type a hex color or pick one from the palette instead.', 'info');
     }
   }
 </script>
 
 <div class="flex flex-col gap-2.5">
   <div class="flex items-center gap-2">
-    <!-- The real colour input sits invisibly over the swatch, so a click opens the system picker. -->
+    <!-- The real color input sits invisibly over the swatch, so a click opens the system picker. -->
     <span class="relative size-9 shrink-0 border border-line-strong" style="background:{value}">
-      <input type="color" class="absolute inset-0 size-full cursor-pointer opacity-0" aria-label="{label}: open the colour picker" {value} oninput={(e) => commit(e.currentTarget.value)} />
+      <input type="color" class="absolute inset-0 size-full cursor-pointer opacity-0" aria-label="{label}: open the color picker" {value} oninput={(e) => commit(e.currentTarget.value)} />
     </span>
     <input
       class="input h-9 w-28 font-mono text-[13px] uppercase {valid ? '' : 'border-danger'}"
-      aria-label="{label}: hex colour"
+      aria-label="{label}: hex color"
       spellcheck="false"
       maxlength="7"
       value={shown}
@@ -71,11 +73,11 @@
       onkeydown={(e) => e.key === 'Enter' && (e.currentTarget.blur(), commit(text))}
     />
     {#if dropper}
-      <IconButton icon={Pipette} label="Pick a colour from the screen" side="top" onclick={pick} />
+      <IconButton icon={Pipette} label="Pick a color from the screen" side="top" onclick={pick} />
     {/if}
   </div>
 
-  <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="{label}: quick colours">
+  <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="{label}: quick colors">
     {#each suggestions as s (s.hex + s.title)}
       <button class="size-6 border border-line-strong outline-offset-2 hover:outline hover:outline-1 hover:outline-fg-2" style="background:{s.hex}" title={s.title} aria-label={s.title} onclick={() => commit(s.hex)}></button>
     {/each}

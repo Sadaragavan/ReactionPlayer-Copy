@@ -1,5 +1,5 @@
 /**
- * The colour theme: the classic black and yellow, or colours taken from the wallpaper (see utils/palette.ts).
+ * The color theme: the classic black and yellow, or colors taken from the wallpaper (see utils/palette.ts).
  * A theme is a set of CSS custom properties on the page's root element; clearing them brings the classic look back, because
  * `src/app.css` holds the classic values.
  */
@@ -66,7 +66,7 @@ export async function readPixels(url: string): Promise<Uint8ClampedArray | null>
 
 export type ThemeOutcome = { kind: 'themed'; swatches: Swatches } | { kind: 'neutral' } | { kind: 'unreadable' };
 
-/** Picks the colours of a wallpaper. `neutral`: the picture has no colour to follow. `unreadable`: it could not be loaded or read. */
+/** Picks the colors of a wallpaper. `neutral`: the picture has no color to follow. `unreadable`: it could not be loaded or read. */
 export async function swatchesForWallpaper(url: string): Promise<ThemeOutcome> {
   const data = await readPixels(url);
   if (!data) return { kind: 'unreadable' };

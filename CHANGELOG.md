@@ -5,28 +5,36 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
-### Added: a colour picker
+### Changed: clearer text, quieter terminal
 
-- **Settings → Appearance → Colors** now chooses where the colours come from: **Classic**, **From wallpaper**, or **Custom**.
-- **Custom** has a picker for the accent and one for the second accent: a swatch that opens the system colour picker, a hex field (`#rgb` or `#rrggbb`), quick colours (including the two found in your wallpaper),
-  and an **eyedropper** that reads any pixel on the screen. Changes apply live. The second accent can be left to the app, which makes one 40° round the colour wheel from the accent.
-- A colour too dark to read on black is made lighter (keeping its hue), and the page says so. "Keep the black base" works with Custom as well.
+- Wording across the app is shorter and plainer (settings hints, toasts, errors, prompts), uses contractions, and is American English throughout ("color", "gray").
+  The new-session hint no longer says the source "always sits on top", which stopped being true when layers became reorderable.
+- The eyedropper now says so when the system won't let the app read the screen (on Windows, Graphics Capture can refuse), instead of failing silently.
+- Chromium's internal error lines (for example the `wgc_capture_source` ones from a denied screen capture) are no longer printed to the terminal. Set `RP_DEBUG=1` to see them. On Windows the app also
+  prefers the older screen-capture path, which avoids that refusal.
+
+### Added: a color picker
+
+- **Settings → Appearance → Colors** now chooses where the colors come from: **Classic**, **From wallpaper**, or **Custom**.
+- **Custom** has a picker for the accent and one for the second accent: a swatch that opens the system color picker, a hex field (`#rgb` or `#rrggbb`), quick colors (including the two found in your wallpaper),
+  and an **eyedropper** that reads any pixel on the screen. Changes apply live. The second accent can be left to the app, which makes one 40° round the color wheel from the accent.
+- A color too dark to read on black is made lighter (keeping its hue), and the page says so. "Keep the black base" works with Custom as well.
 - Older saves that had the wallpaper switch on keep it on (it becomes the "From wallpaper" choice).
 
-### Changed: wallpaper colours are opt-in, with a black-base mode
+### Changed: wallpaper colors are opt-in, with a black-base mode
 
-- **Picking a wallpaper asks first.** If it has colour in it, a prompt previews the accent, second accent and glow and asks "Use the wallpaper's colors?". Nothing changes until you say yes, and the colours stay off by default.
+- **Picking a wallpaper asks first.** If it has color in it, a prompt previews the accent, second accent and glow and asks "Use the wallpaper's colors?". Nothing changes until you say yes, and the colors stay off by default.
   "Do not ask again" (also in Appearance) stops the prompt.
-- **Keep the black base** (on by default, for OLED screens): only the accent colours and the Home glow and cursor animation change. Turn it off to tint the text, lines and hover tones too. Backgrounds are black either way.
-- With the colours on, a new wallpaper applies its colours straight away.
+- **Keep the black base** (on by default, for OLED screens): only the accent colors and the Home glow and cursor animation change. Turn it off to tint the text, lines and hover tones too. Backgrounds are black either way.
+- With the colors on, a new wallpaper applies its colors straight away.
 - The Master audio hint now says the master provides the clock (and the sound only if "Mute the other videos" is on); the Demo and Load session entry points follow that preference too.
 
-### Added: colours from the wallpaper
+### Added: colors from the wallpaper
 
-- **Settings → Appearance → Colors from the wallpaper.** Like an Omarchy theme following its wallpaper: the colour the picture is most made of becomes the accent, a second, different colour
-  becomes the second accent, the text, lines and hover tones are tinted to match, and the Home glow, embers and menu underline take the colours too. The canvas and the backgrounds stay black.
-  A picture with no colour to follow (grey, black and white) keeps the classic yellow and says so. The theme is worked out once when the wallpaper changes and saved, so it is there at once on the next start.
-- Colours are chosen in OKLCH, so the accent always reads on black (it is kept at least 7:1 against it), whether the wallpaper is pale or dark.
+- **Settings → Appearance → Colors from the wallpaper.** Like an Omarchy theme following its wallpaper: the color the picture is most made of becomes the accent, a second, different color
+  becomes the second accent, the text, lines and hover tones are tinted to match, and the Home glow, embers and menu underline take the colors too. The canvas and the backgrounds stay black.
+  A picture with no color to follow (gray, black and white) keeps the classic yellow and says so. The theme is worked out once when the wallpaper changes and saved, so it is there at once on the next start.
+- Colors are chosen in OKLCH, so the accent always reads on black (it is kept at least 7:1 against it), whether the wallpaper is pale or dark.
 
 ### Fixed: preferences were not being saved
 
@@ -46,7 +54,7 @@ and the version matches `package.json`.
   ffmpeg ships inside the app for this (a system `ffmpeg` is the fallback). The Audio track menu lists every track in the file, including these, marked "Converted".
 - **Picture subtitles (PGS)**, the format on Blu-ray rips, are decoded and drawn over the video at their authored position. MKV files whose blocks the muxer
   compressed with zlib (as in your file) are handled too.
-- **The reaction is no longer muted when a session starts.** Every video is audible; Preferences → Playback → "Mute the other videos" brings the old behaviour back.
+- **The reaction is no longer muted when a session starts.** Every video is audible; Preferences → Playback → "Mute the other videos" brings the old behavior back.
 - **The "play another source?" question has a threshold**, 15 minutes past the end of the source by default (Preferences → Playback; 0 turns it off).
 - A file whose video cannot be decoded now says why (HEVC/H.265 needs "HEVC Video Extensions" on Windows) and Preferences shows whether video is decoded by the graphics chip or the processor.
 - Fixed: closing or reloading the window while the app was still starting could replace `settings.json` with an empty file.
@@ -122,7 +130,7 @@ and the version matches `package.json`.
   motion, and a tap on a touch screen sends up a small spray of sparks instead of a trail.
 - Touch targets on Home are at least 44 px, and the screen reflows for portrait phones and tablets, narrow windows and short
   landscape screens.
-- Cinzel for the Home menu, under the SIL Open Font Licence 1.1. The licence text is in `src/assets/fonts/`.
+- Cinzel for the Home menu, under the SIL Open Font License 1.1. The license text is in `src/assets/fonts/`.
 
 ## [0.1.0] - 2026-11-07
 

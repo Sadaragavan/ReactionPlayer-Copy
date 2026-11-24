@@ -53,7 +53,7 @@
       await settings.setWallpaper({ type: file.type === 'image/gif' ? 'gif' : 'image', url, name: file.name });
       ui.toast('Wallpaper set.', 'success', { label: 'See Home', run: () => router.go('home') });
     } catch {
-      error = 'That file could not be read as a picture.';
+      error = 'Couldn’t read that file as a picture.';
     } finally {
       busy = false;
     }
@@ -72,7 +72,7 @@
     try {
       url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
     } catch {
-      error = 'That does not look like a link.';
+      error = 'That doesn’t look like a link.';
       return;
     }
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -86,7 +86,7 @@
       link = '';
       ui.toast('Wallpaper set.', 'success', { label: 'See Home', run: () => router.go('home') });
     } catch {
-      error = 'That link did not load as a picture. Some sites block hot-linking: try uploading the file instead.';
+      error = 'That link didn’t load as a picture. Some sites block it; try uploading the file instead.';
     } finally {
       busy = false;
     }
@@ -105,18 +105,18 @@
 
   /** The second accent as shown in its picker: the one picked, else the one made from the accent. */
   const second = $derived(settings.settings.customAccent2 ?? (settings.customSwatches ? oklchToHex(settings.customSwatches.accent2) : '#ffb347'));
-  /** The colours found in the current wallpaper, offered as quick colours. */
+  /** The colors found in the current wallpaper, offered as quick colors. */
   const wallpaperPicks = $derived(
     settings.settings.themeSwatches
       ? [
           { hex: oklchToHex(settings.settings.themeSwatches.accent), title: 'From the wallpaper' },
-          { hex: oklchToHex(settings.settings.themeSwatches.accent2), title: 'From the wallpaper (second colour)' }
+          { hex: oklchToHex(settings.settings.themeSwatches.accent2), title: 'From the wallpaper (second color)' }
         ]
       : []
   );
 </script>
 
-<Section title="Wallpaper" intro="The artwork behind the Home menu, edge to edge. It is never blurred.">
+<Section title="Wallpaper" intro="The picture behind the Home menu. It is never blurred.">
   <div class="py-6">
     <!-- The preview is a drop target too: drag a picture onto it. -->
     <div
@@ -168,33 +168,33 @@
     </p>
     {#if error}<p class="mt-2 max-w-2xl text-[13px] text-danger" role="alert">{error}</p>{/if}
     {#if wallpaper && !settings.wallpaperPersisted}
-      <p class="mt-2 max-w-2xl text-[13px] text-fg-2" role="status">The wallpaper could not be saved, so it lasts until the app closes.</p>
+      <p class="mt-2 max-w-2xl text-[13px] text-fg-2" role="status">Couldn’t save the wallpaper, so it lasts only until the app closes.</p>
     {/if}
   </div>
 
   <SettingRow
     title="Full clarity"
-    hint="No blur and no overall dimming: the picture shows as it is, apart from a soft shade along the bottom and left edges that keeps the menu readable. Turn it off to lay a plain dark veil over it, still without blur."
+    hint="Shows the wallpaper as it is, with only a soft shade behind the menu. Off adds a plain dark overlay."
   >
     <Switch label="Full clarity" checked={clear} onchange={(on) => settings.setWallpaperClear(on)} />
   </SettingRow>
 </Section>
 
-<Section title="Colors" intro="The accent, the second accent and the glow on Home. The canvas and the backgrounds stay black.">
-  <SettingRow title="Colors" hint="The classic black and yellow, colours taken from your wallpaper, or colours you pick yourself.">
+<Section title="Colors" intro="The accent, the second accent and the Home glow. Backgrounds stay black.">
+  <SettingRow title="Colors" hint="Classic black and yellow, colors from your wallpaper, or colors you pick.">
     <Segmented label="Where the colors come from" options={SOURCES} value={settings.settings.themeSource} onchange={(v) => void settings.setThemeSource(v)} />
   </SettingRow>
 
   {#if settings.settings.themeSource === 'wallpaper'}
     <div class="py-4 text-[13px]" role="status">
       {#if settings.themeStatus === 'themed'}
-        <p class="text-fg-3">Picked from the colours your wallpaper is most made of.</p>
+        <p class="text-fg-3">Taken from the main colors in your wallpaper.</p>
       {:else if settings.themeStatus === 'no-wallpaper'}
-        <p class="text-fg-2">Set a wallpaper above and its colours are used.</p>
+        <p class="text-fg-2">Set a wallpaper above to use its colors.</p>
       {:else if settings.themeStatus === 'neutral'}
-        <p class="text-fg-2">This picture has too little colour to pick from (it is mostly grey, black or white), so the classic yellow is kept. Choose Custom to pick a colour yourself.</p>
+        <p class="text-fg-2">This picture has too little color to pick from (mostly gray, black or white), so the classic yellow is kept. Choose Custom to pick one yourself.</p>
       {:else if settings.themeStatus === 'unreadable'}
-        <p class="text-danger">The colours of this picture could not be read, so the classic yellow is kept. A link whose website does not allow it cannot be read: upload the picture instead.</p>
+        <p class="text-danger">Couldn’t read this picture’s colors, so the classic yellow is kept. Colors can’t be read from a link whose website blocks it; upload the picture instead.</p>
       {/if}
     </div>
   {/if}
@@ -209,21 +209,21 @@
         <div class="mb-2.5 flex items-center justify-between">
           <p class="text-[13px] text-fg">Second accent</p>
           {#if settings.settings.customAccent2}
-            <button class="text-[12.5px] text-fg-3 hover:text-fg" onclick={() => settings.setCustomAccent('accent2', null)}>Make it from the accent</button>
+            <button class="text-[12.5px] text-fg-3 hover:text-fg" onclick={() => settings.setCustomAccent('accent2', null)}>Match the accent</button>
           {:else}
-            <span class="text-[12.5px] text-fg-3">Made from the accent</span>
+            <span class="text-[12.5px] text-fg-3">Matches the accent</span>
           {/if}
         </div>
         <ColorPicker label="Second accent" value={second} onchange={(hex) => settings.setCustomAccent('accent2', hex)} />
       </div>
     </div>
     {#if settings.customSwatches?.adjusted}
-      <p class="pb-3 text-[12.5px] text-fg-3" role="status">A dark colour is made a little lighter, so it can be read on black.</p>
+      <p class="pb-3 text-[12.5px] text-fg-3" role="status">Dark colors are lightened slightly so they read on black.</p>
     {/if}
   {/if}
 
   {#if settings.settings.themeSource !== 'classic'}
-    <SettingRow title="Keep the black base" hint="On: only the accent colours and the cursor glow change, and everything else stays black and white (best for OLED screens). Off: the text, lines and hover tones are tinted too.">
+    <SettingRow title="Keep the black base" hint="On: only the accent colors and the cursor glow change (best for OLED screens). Off: text, lines and hover tones are tinted too.">
       <Switch label="Keep the black base" checked={settings.settings.themeKeepBlack} onchange={(v) => settings.setThemeKeepBlack(v)} />
     </SettingRow>
     <div class="flex flex-wrap items-center gap-4 py-4 text-[13px]">
@@ -234,7 +234,7 @@
     </div>
   {/if}
 
-  <SettingRow title="Ask when I pick a wallpaper" hint="After you pick a wallpaper with colour in it, ask whether to use its colors.">
+  <SettingRow title="Ask when I pick a wallpaper" hint="After you pick a wallpaper with color in it, ask whether to use its colors.">
     <Switch label="Ask when I pick a wallpaper" checked={settings.settings.askThemeOnWallpaper} onchange={(v) => settings.setAskThemeOnWallpaper(v)} />
   </SettingRow>
 </Section>

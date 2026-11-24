@@ -60,19 +60,19 @@ export function captureFrame(el: HTMLVideoElement, crop: Crop = ZERO_CROP, maxEd
 
 export function captureErrorMessage(err: unknown): string {
   if (err instanceof DOMException && err.name === 'SecurityError') {
-    return 'This video’s host does not allow frame capture. Use a local file instead.';
+    return 'This video’s host doesn’t allow frame capture. Use a local file instead.';
   }
   if (err instanceof DOMException && err.name === 'NotAllowedError') {
-    return 'The clipboard is blocked here, so the frame could not be copied.';
+    return 'The clipboard is blocked here, so the frame couldn’t be copied.';
   }
-  return err instanceof Error ? err.message : 'Could not capture the frame.';
+  return err instanceof Error ? err.message : 'Couldn’t capture the frame.';
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Could not load the image.'));
+    img.onerror = () => reject(new Error('Couldn’t load the image.'));
     img.src = src;
   });
 }
@@ -153,7 +153,7 @@ export function composeStage(layers: StageLayer[], ratio: number, width = 480): 
   return canvas;
 }
 
-/** A colour from the current theme (a CSS custom property), for drawing on a canvas. */
+/** A color from the current theme (a CSS custom property), for drawing on a canvas. */
 function themeColor(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback;
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;

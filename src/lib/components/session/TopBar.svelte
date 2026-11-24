@@ -60,8 +60,8 @@
     const thumb = playback.thumbnail();
     if (thumb) session.setThumbnail(thumb);
     if (await session.save()) {
-      ui.toast('Session saved. It is listed under Continue and Load session.', 'success', { label: session.current?.presetId ? 'Update preset' : 'Save layout as preset', run: () => void saveLayoutAsPreset() });
-    } else ui.toast('Could not save the session to disk.', 'error');
+      ui.toast('Session saved. Find it under Continue and Load session.', 'success', { label: session.current?.presetId ? 'Update preset' : 'Save layout as preset', run: () => void saveLayoutAsPreset() });
+    } else ui.toast('Couldn’t save the session.', 'error');
   }
 </script>
 

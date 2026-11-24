@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Shown when a wallpaper with colours in it is picked and the theme is off: “use its colors?”. It previews the two colours
+   * Shown when a wallpaper with colors in it is picked and the theme is off: “use its colors?”. It previews the two colors
    * that would be used. Nothing changes until the answer is yes, and the answer to the black base question is made here.
    */
   import { settings } from '$lib/stores/settings.svelte';
@@ -26,7 +26,7 @@
 
 <Modal open={!!offer} onclose={() => settings.declineThemeOffer(dontAsk)} title="Use the wallpaper's colors?" width="max-w-md">
   <div class="space-y-4 p-5 text-[13.5px]">
-    <p class="text-fg-2">This wallpaper has colour in it. The interface can follow it, like a theme following its wallpaper.</p>
+    <p class="text-fg-2">This wallpaper has color in it. The app can use it for its accent colors.</p>
     {#if preview}
       <div class="flex items-center gap-5">
         <span class="flex items-center gap-2"><span class="size-8 border border-line-strong" style="background:{preview['--color-accent']}"></span>Accent</span>
@@ -37,12 +37,12 @@
     <div class="flex items-start justify-between gap-4">
       <div>
         <p class="text-fg">Keep the black base</p>
-        <p class="text-[12.5px] text-fg-3">Only the accent colours and the cursor glow change; everything else stays black and white. Best for OLED screens.</p>
+        <p class="text-[12.5px] text-fg-3">Only the accent colors and cursor glow change; everything else stays black and white. Best for OLED screens.</p>
       </div>
       <Switch label="Keep the black base" checked={keepBlack} onchange={(v) => (keepBlack = v)} />
     </div>
     <div class="flex items-center justify-between gap-4">
-      <p class="text-fg-2">Do not ask again when I pick a wallpaper</p>
+      <p class="text-fg-2">Don’t ask again when I pick a wallpaper</p>
       <Switch label="Do not ask again" checked={dontAsk} onchange={(v) => (dontAsk = v)} />
     </div>
   </div>

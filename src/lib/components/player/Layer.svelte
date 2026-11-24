@@ -134,7 +134,7 @@
         <div class="absolute inset-0 grid place-items-center bg-black p-3 text-center">
           <div class="flex flex-col items-center gap-1.5 text-fg-2">
             <TriangleAlert size={20} strokeWidth={1.6} class="text-danger" />
-            <span class="text-[12.5px]">{hevc ? 'This computer cannot decode HEVC (H.265).' : codec ? `The ${codec} video in this file cannot be decoded here.` : 'This file cannot be played here.'}</span>
+            <span class="text-[12.5px]">{hevc ? 'This computer can’t decode HEVC (H.265).' : codec ? `Can’t decode the ${codec} video in this file.` : 'This file can’t be played here.'}</span>
             <span class="text-[11.5px] text-fg-3">
               {hevc
                 ? 'On Windows, install “HEVC Video Extensions” from the Microsoft Store, or use an H.264 copy of the file.'
@@ -158,7 +158,7 @@
     {#if audioProxy.status[video.id]}
       {@const st = audioProxy.status[video.id]}
       <div class="pointer-events-none absolute bottom-1.5 left-1.5 bg-black px-2 py-1 text-[11.5px] text-fg-2">
-        {st.error ? 'No sound: the audio could not be converted' : `Preparing audio… ${Math.round(st.fraction * 100)}%`}
+        {st.error ? 'No sound: audio conversion failed' : `Preparing audio… ${Math.round(st.fraction * 100)}%`}
       </div>
     {/if}
 

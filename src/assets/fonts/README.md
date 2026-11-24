@@ -8,4 +8,4 @@ SIL Open Font License 1.1.
 | `archivo-latin-wdth.woff2` | Archivo, variable (weight and width) | All interface text |
 | `cinzel-latin-wght.woff2` | Cinzel, variable (weight), Latin subset | The Home menu only |
 
-The Cinzel licence and copyright notice are in `OFL-Cinzel.txt`.
+The Cinzel license and copyright notice are in `OFL-Cinzel.txt`.

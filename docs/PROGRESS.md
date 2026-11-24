@@ -24,7 +24,7 @@ The root font size is 14 px, so Tailwind spacing utilities scale by 0.875; expli
 - True `#000` everywhere, hairline borders (`border-line`, `border-line-strong`), square-ish corners, **no blur anywhere**.
 - Yellow `#FFD400` (`text-accent`, `bg-accent`) only marks live or selected things: the source layer, the playhead, the linked
   state, one primary button.
-- Reaction layers are white or grey, with a dashed outline when selected. The source layer has a yellow outline. Stacking
+- Reaction layers are white or gray, with a dashed outline when selected. The source layer has a yellow outline. Stacking
   is each layer's `zIndex` (new layouts put the source on top).
 - Archivo only. Page titles use `.title-wide` (width 125, weight 800). Numbers use `.num` (tabular). Sentence case, no all
   caps, no eyebrows.
@@ -37,11 +37,11 @@ Home is set like a game's title screen, after a screen recording the owner suppl
 used). It is the only place that breaks the rules above, and it is kept to `components/home/`, `actions/streak.ts` and
 `utils/embers.ts`:
 
-- **Type.** Cinzel (`src/assets/fonts/cinzel-latin-wght.woff2`, SIL Open Font Licence 1.1, licence text beside it) for the menu
+- **Type.** Cinzel (`src/assets/fonts/cinzel-latin-wght.woff2`, SIL Open Font License 1.1, license text beside it) for the menu
   words, in capitals with wide tracking. The wordmark stays Archivo, and so does all the small print.
 - **Light instead of shadow.** A glow on the menu text, a bloom behind "Continue", a line that runs from the left edge of the
   hovered or focused item to the pointer (`use:streak`), and a canvas of embers that follows the pointer (`EmberTrail.svelte`
-  drives `EmberField` in `utils/embers.ts`). The colours are the `--ember*` and `--paper*` custom properties in `app.css`: a warm
+  drives `EmberField` in `utils/embers.ts`). The colors are the `--ember*` and `--paper*` custom properties in `app.css`: a warm
   amber, not the app's yellow. The logo mark keeps its yellow.
 - **Still true on Home.** Nothing is blurred (no `filter: blur`, no `backdrop-filter`, and the wallpaper is never blurred). With no
   wallpaper the ground is `#000` with a faint warm light low on the left. The wallpaper is the artwork; a soft shade along the
@@ -85,7 +85,7 @@ used). It is the only place that breaks the rules above, and it is kept to `comp
 - Demo clips: `src/assets/demo/source.webm` (flashes at 2.0 s and 8.0 s) and `reaction.webm` (3.5 s and 9.5 s), so the reaction
   needs `offsetMs = +1500` to line up. `scripts/make-demo-clips.sh` regenerates them.
 
-## Behaviour worth remembering
+## Behavior worth remembering
 
 - **Unequal lengths.** The linked timeline is the union of all footage. A video outside its own footage waits on its first or last
   frame, a virtual clock carries the timeline while the master has none, playback ends when every video has ended, a single

@@ -5,7 +5,7 @@ export function readAsDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read the file.'));
+    reader.onerror = () => reject(reader.error ?? new Error('Couldn’t read the file.'));
     reader.readAsDataURL(blob);
   });
 }
@@ -26,7 +26,7 @@ export async function copyCanvasToClipboard(canvas: HTMLCanvasElement): Promise<
     return;
   }
   if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
-    throw new Error('This browser cannot copy images to the clipboard.');
+    throw new Error('This browser can’t copy images to the clipboard.');
   }
   const blob = await canvasToBlob(canvas, 'image/png');
   await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);

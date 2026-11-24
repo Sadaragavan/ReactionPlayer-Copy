@@ -40,6 +40,13 @@ function configureChromium(): void {
   if (features.length) app.commandLine.appendSwitch('enable-features', features.join(','));
   // Without this Chromium leaves `video.audioTracks` undefined, so a file with several audio tracks looks like it has one.
   app.commandLine.appendSwitch('enable-blink-features', 'AudioVideoTracks');
+  // Chromium prints its internal errors to the terminal (a denied screen capture from the eyedropper, say). They are harmless
+  // noise for a player; set RP_DEBUG=1 to see them again.
+  if (!process.env['RP_DEBUG']) app.commandLine.appendSwitch('log-level', '3');
+  if (process.platform === 'win32') {
+    // The eyedropper reads the screen through Windows Graphics Capture, which some systems refuse; the older capture path always works.
+    app.commandLine.appendSwitch('disable-features', 'AllowWgcScreenCapturer,AllowWgcWindowCapturer,WebRtcAllowWgcDesktopCapturer');
+  }
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
   app.commandLine.appendSwitch('enable-zero-copy');
@@ -319,7 +326,7 @@ function relaxMediaCors(): void {
   session.defaultSession.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     const headers = details.responseHeaders ?? {};
     const type = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')?.[1]?.[0] ?? '';
-    // Images too: the wallpaper's colours are read from its pixels, which a canvas allows only for a picture its host permits.
+    // Images too: the wallpaper's colors are read from its pixels, which a canvas allows only for a picture its host permits.
     if (details.resourceType !== 'media' && details.resourceType !== 'image' && !type.toLowerCase().startsWith('video/')) return callback({});
     const next = { ...headers };
     for (const key of Object.keys(next)) {

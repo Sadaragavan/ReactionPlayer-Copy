@@ -14,7 +14,7 @@ and `README.md` covers running, packaging and the desktop features.
 3. Look at any UI change in the app (`npm run dev`) before committing it.
 4. Add a line under `[Unreleased]` in `CHANGELOG.md` for anything a user would notice. Change `version` in
    `package.json` only when cutting a release, and move the `[Unreleased]` lines under the new version.
-5. Update `docs/PROGRESS.md` when behaviour, rules or known gaps change.
+5. Update `docs/PROGRESS.md` when behavior, rules or known gaps change.
 
 CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds installers for all three systems.
 
@@ -25,7 +25,7 @@ CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds install
 - The one exception is Home's title screen (`src/lib/components/home/`): Cinzel in capitals, glow, a warm amber light and
   the ember trail. It still never blurs anything. Nothing else borrows from it; the other pages keep the plain look. What
   it may and may not do is under "The one exception" in `docs/PROGRESS.md`.
-- Bundled fonts keep their licence file beside them in `src/assets/fonts/`.
+- Bundled fonts keep their license file beside them in `src/assets/fonts/`.
 - Layers are painted by `zIndex` (`sortByZ` in `src/lib/engine/zorder.ts`) and the pointer is tested with `hitTest` from the highest
   down, skipping hidden and locked layers. Anything that reads a stored layer, session or preset must go through
   `migrate.ts` first, so old saves without `zIndex` still work. Layout builders must give every slot a `zIndex`.
@@ -34,7 +34,7 @@ CI (`.github/workflows/build-desktop.yml`) repeats the checks and builds install
   (`session.mediaIdOf`). Change it only through the `session` store (`addSource`, `moveSource`, `activateSource`, `startSource` …).
 - A track Chromium cannot decode (`playable: false`) must go through `playback.refreshAudio` and the converted-audio sidecar; never assume `video.audioTracks` lists every track.
 - Subtitles are read by `electron/tracks.ts`, not by Chromium (it exposes none). Keep `AudioVideoTracks` on in `main.ts`; without it every file seems to have one audio track.
-- Colours come from the theme variables in `src/app.css` (`bg-accent`, `var(--ember-rgb)`…), never a hard-coded yellow or amber, so the wallpaper theme can recolour them. Pass plain data (not `$state` proxies) over IPC.
+- Colors come from the theme variables in `src/app.css` (`bg-accent`, `var(--ember-rgb)`…), never a hard-coded yellow or amber, so the wallpaper theme can recolor them. Pass plain data (not `$state` proxies) over IPC.
 - There are no plans, tiers or limits other than four videos (`MAX_VIDEOS`). Do not bring gating back.
 - Anything the page may ask of the system goes through `window.electronAPI` (`src/shared/api.ts`, `electron/preload.ts`) and must
   still have a browser fallback via `$lib/platform`. IPC handlers check the sender (`trusted` in `electron/main.ts`).

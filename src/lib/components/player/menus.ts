@@ -217,7 +217,7 @@ function subtitleMenu(id: ID): MenuEntry {
     entries.push({
       id: `sub-${t.track}`,
       label: setting.label,
-      hint: t.supported ? undefined : 'Pictures, cannot show',
+      hint: t.supported ? undefined : 'Image-based, can’t show',
       disabled: !t.supported,
       checked: current?.kind === 'embedded' && current.track === t.track,
       onSelect: () => subtitles.choose(id, { ...setting, delayMs: current?.delayMs })

@@ -111,7 +111,7 @@
     if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
       const op: ZOp = e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward';
       if (session.selectedId && !session.isLocked) session.reorderLayer(session.selectedId, op);
-      else ui.toast(session.isLocked ? 'Unlock the viewports to change the layer order.' : 'Select a layer first.', 'info');
+      else ui.toast(session.isLocked ? 'Unlock the layers to change their order.' : 'Select a layer first.', 'info');
       e.preventDefault();
       return;
     }

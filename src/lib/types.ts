@@ -269,17 +269,17 @@ export interface AppSettings {
   /** Layout a new session starts in. */
   defaultLayout: Exclude<LayoutType, 'custom'>;
   playback: PlaybackPrefs;
-  /** Where the colours come from: the classic black and yellow, the wallpaper, or colours picked by hand. */
+  /** Where the colors come from: the classic black and yellow, the wallpaper, or colors picked by hand. */
   themeSource: ThemeSource;
-  /** The accent picked by hand (a hex colour), used when `themeSource` is `custom`. */
+  /** The accent picked by hand (a hex color), used when `themeSource` is `custom`. */
   customAccent: string;
   /** The second accent picked by hand; null makes one from the accent. */
   customAccent2: string | null;
-  /** Keep the black base: with colours from the wallpaper, only the accents and the Home glow change (for OLED screens). Off also tints text and lines. */
+  /** Keep the black base: with colors from the wallpaper, only the accents and the Home glow change (for OLED screens). Off also tints text and lines. */
   themeKeepBlack: boolean;
-  /** Ask whether to use the colours when a wallpaper is picked. */
+  /** Ask whether to use the colors when a wallpaper is picked. */
   askThemeOnWallpaper: boolean;
-  /** The colours picked from the current wallpaper, kept so the theme applies at once on the next start without reading the picture again. */
+  /** The colors picked from the current wallpaper, kept so the theme applies at once on the next start without reading the picture again. */
   themeSwatches: { accent: { l: number; c: number; h: number }; accent2: { l: number; c: number; h: number } } | null;
 }
 

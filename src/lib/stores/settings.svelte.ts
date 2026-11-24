@@ -16,7 +16,7 @@ class SettingsStore {
   ready = $state(false);
   /** False when the wallpaper could not be kept (a full disk, a blocked browser store). */
   wallpaperPersisted = $state(true);
-  /** What the last attempt to take colours from the wallpaper found. */
+  /** What the last attempt to take colors from the wallpaper found. */
   themeStatus = $state<'off' | 'themed' | 'custom' | 'neutral' | 'unreadable' | 'no-wallpaper'>('off');
 
   get playback(): PlaybackPrefs {
@@ -28,7 +28,7 @@ class SettingsStore {
 
   async init(): Promise<void> {
     const stored = lsGet<Partial<AppSettings> & { autoTheme?: boolean }>(LS_SETTINGS, {});
-    // Settings saved before colours could be picked by hand had a plain on/off switch for the wallpaper colours.
+    // Settings saved before colors could be picked by hand had a plain on/off switch for the wallpaper colors.
     if (stored.autoTheme && !stored.themeSource) stored.themeSource = 'wallpaper';
     delete stored.autoTheme;
     this.settings = {
@@ -80,13 +80,13 @@ class SettingsStore {
     else void this.offerTheme();
   }
 
-  /** Where the colours come from: the classic yellow, the wallpaper, or colours picked by hand. */
+  /** Where the colors come from: the classic yellow, the wallpaper, or colors picked by hand. */
   async setThemeSource(source: ThemeSource): Promise<void> {
     this.settings.themeSource = source;
     await this.refreshTheme();
   }
 
-  /** Sets a colour picked by hand and applies it at once (it can be called as a picker is dragged). `null` for the second accent makes one from the first. */
+  /** Sets a color picked by hand and applies it at once (it can be called as a picker is dragged). `null` for the second accent makes one from the first. */
   setCustomAccent(which: 'accent' | 'accent2', hex: string | null): void {
     if (which === 'accent') {
       if (hex) this.settings.customAccent = hex;
@@ -128,7 +128,7 @@ class SettingsStore {
   }
 
   /**
-   * Applies the theme. For the wallpaper that means reading its colours; with no wallpaper, or one with no colour to follow or that
+   * Applies the theme. For the wallpaper that means reading its colors; with no wallpaper, or one with no color to follow or that
    * cannot be read, the classic look is used.
    */
   async refreshTheme(): Promise<void> {
@@ -155,7 +155,7 @@ class SettingsStore {
     this.#persist();
   }
 
-  /** After a wallpaper is picked while the colours are classic: works out its colours and, if there are any, asks whether to use them. */
+  /** After a wallpaper is picked while the colors are classic: works out its colors and, if there are any, asks whether to use them. */
   async offerTheme(): Promise<void> {
     const wp = this.settings.wallpaper;
     if (!wp || this.settings.themeSource !== 'classic' || !this.settings.askThemeOnWallpaper) return;
@@ -163,7 +163,7 @@ class SettingsStore {
     if (outcome.kind === 'themed') ui.themeOffer = { swatches: { accent: outcome.swatches.accent, accent2: outcome.swatches.accent2 } };
   }
 
-  /** The user said yes to the offered colours. */
+  /** The user said yes to the offered colors. */
   acceptThemeOffer(keepBlack: boolean, dontAskAgain: boolean): void {
     const offer = ui.themeOffer;
     ui.themeOffer = null;
@@ -177,7 +177,7 @@ class SettingsStore {
     this.#persist();
   }
 
-  /** The user kept the classic colours. */
+  /** The user kept the classic colors. */
   declineThemeOffer(dontAskAgain: boolean): void {
     ui.themeOffer = null;
     if (dontAskAgain) this.setAskThemeOnWallpaper(false);

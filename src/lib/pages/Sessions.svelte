@@ -36,7 +36,7 @@
 
   async function resume(s: Session) {
     if (await session.open(s.id)) router.go('session');
-    else ui.toast('That session could not be opened.', 'error');
+    else ui.toast('Couldn’t open that session.', 'error');
   }
 
   async function duplicate(s: Session) {
@@ -46,8 +46,8 @@
 
   async function exportConfig(s: Session) {
     const outcome = await session.exportJSON(s.id);
-    if (outcome === 'saved') ui.toast('Config saved. It holds the layout and sync, not your video files.', 'success');
-    else if (outcome === 'failed') ui.toast('The config file could not be saved.', 'error');
+    if (outcome === 'saved') ui.toast('Layout file saved. It holds the layout and sync, not your videos.', 'success');
+    else if (outcome === 'failed') ui.toast('Couldn’t save the layout file.', 'error');
   }
 
   async function confirmDelete() {

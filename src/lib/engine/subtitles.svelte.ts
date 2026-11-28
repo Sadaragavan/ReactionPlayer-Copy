@@ -51,7 +51,7 @@ class SubtitleStore {
     // The layer may have moved on to another choice while this was reading.
     if (this.#loaded.get(layer.id) !== key) return;
     this.cues = { ...this.cues, [layer.id]: cues };
-    if (!cues.length) ui.toast(`No subtitle text could be read from “${s.label}”.`, 'error');
+    if (!cues.length) ui.toast(`Couldn’t read any subtitles from “${s.label}”.`, 'error');
   }
 
   /** The lines showing on a layer at video time `t` (seconds), the layer's own delay included. */

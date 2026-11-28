@@ -54,10 +54,10 @@
   <div class="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3" style="top:{top}px">
     <div class="pointer-events-auto flex max-w-full items-center gap-3 border border-line bg-black py-1.5 pr-1.5 pl-4 text-[13px]" role="status">
       {#if waiting}
-        <span class="min-w-0 truncate text-fg-2">Next source ready: <span class="text-fg">{source?.title}</span>. It is waiting on its first frame.</span>
+        <span class="min-w-0 truncate text-fg-2">Next source ready: <span class="text-fg">{source?.title}</span>. It’s waiting on its first frame.</span>
         <Button size="sm" variant="primary" icon={Play} onclick={() => playback.startNextSource()}>Start it</Button>
       {:else}
-        <span class="min-w-0 text-fg-2">The reaction runs {Math.round(settings.playback.sourcePromptMinutes)}+ minutes past the source. Play another source?</span>
+        <span class="min-w-0 text-fg-2">The reaction runs {Math.round(settings.playback.sourcePromptMinutes)}+ minutes longer than the source. Add another source?</span>
         <Button size="sm" variant="primary" icon={ListPlus} onclick={() => (ui.addSourceOpen = true)}>Add a source</Button>
         <IconButton size="sm" icon={X} label="Not now" side="bottom" onclick={() => (ui.sourcePromptDismissed[key] = true)} />
       {/if}

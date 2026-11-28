@@ -4,7 +4,7 @@
  * `electron/preload.ts` implements `ElectronAPI` and exposes it as
  * `window.electronAPI` through `contextBridge`; the renderer only ever sees this
  * interface. When the app runs in a plain browser (`npm run dev:web`) the object
- * is absent and every caller falls back to browser behaviour (see `$lib/platform`).
+ * is absent and every caller falls back to browser behavior (see `$lib/platform`).
  *
  * Stored documents cross the bridge as `unknown`: the renderer owns their shape
  * and validates them when they come back.

@@ -190,7 +190,7 @@ export class Studio {
       await this.capture(i);
     } catch (err) {
       if (opts.objectUrl) URL.revokeObjectURL(opts.objectUrl);
-      ui.toast(err instanceof Error ? err.message : 'Could not open that video.', 'error');
+      ui.toast(err instanceof Error ? err.message : 'Couldn’t open that video.', 'error');
     } finally {
       slot.busy = false;
     }
@@ -234,7 +234,7 @@ export class Studio {
     const v = session.current?.videos[i];
     const el = v ? playback.element(v.id) : null;
     if (!v || !el || !el.videoWidth) {
-      if (!quiet) ui.toast('That video has no picture yet. Open the session and let it load.', 'info');
+      if (!quiet) ui.toast('That video has no picture yet. Let it load first.', 'info');
       return false;
     }
     try {

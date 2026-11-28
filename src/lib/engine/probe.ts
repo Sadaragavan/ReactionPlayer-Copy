@@ -44,7 +44,7 @@ export async function probeVideo(src: string, opts: { crossOrigin?: boolean } = 
         'error',
         () => {
           clearTimeout(timer);
-          reject(new Error('This browser cannot play that file. Try MP4 (H.264) or WebM.'));
+          reject(new Error('Can’t play that file here. Try MP4 (H.264) or WebM.'));
         },
         { once: true }
       );

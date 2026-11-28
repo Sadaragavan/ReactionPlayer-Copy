@@ -94,9 +94,6 @@
       {#if presets.custom.length === 0}
         <EmptyState icon={SlidersHorizontal} title="No presets of your own yet">
           Line up a source and a reaction once, then reuse that layout in every session.
-          {#snippet actions()}
-            <Button variant="primary" icon={Plus} onclick={create}>New preset</Button>
-          {/snippet}
         </EmptyState>
       {:else}
         <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-5">

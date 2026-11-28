@@ -34,7 +34,7 @@
       const r = await probeVideo(src);
       if (same()) slot = { ...base, duration: r.duration, width: r.width, height: r.height, thumb: r.thumb };
     } catch (err) {
-      if (same()) slot = { ...base, error: err instanceof Error ? err.message : 'Could not read this video.' };
+      if (same()) slot = { ...base, error: err instanceof Error ? err.message : 'Couldn’t read this video.' };
     }
   }
 
@@ -54,7 +54,7 @@
       u = new URL(raw);
       if (!/^https?:$/.test(u.protocol)) throw new Error('protocol');
     } catch {
-      ui.toast('That is not a web link. Start it with https://', 'error');
+      ui.toast('That isn’t a web link. It should start with https://', 'error');
       return;
     }
     picked = null;
@@ -70,7 +70,7 @@
   function add() {
     if (!slot || !ready) return;
     const id = session.addSource({ title: slot.title, kind: slot.kind, url: slot.url, duration: slot.duration, picked: picked ?? undefined, fileName: slot.fileName, fileSize: slot.fileSize });
-    if (!id) return ui.toast('There is no source to add to.', 'error');
+    if (!id) return ui.toast('There’s no source to add to.', 'error');
     ui.toast(`Added “${slot.title}” to the sources.`, 'success');
     close();
   }

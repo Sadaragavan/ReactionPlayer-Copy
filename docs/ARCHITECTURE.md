@@ -150,11 +150,11 @@ and picture extensions. On open, `restoreSessionMedia` checks that each path sti
 In a browser the registry keeps blob URLs and File System Access handles instead. The sample clips use a `demo:source` /
 `demo:reaction` scheme (`engine/demo.ts`), so saved demo sessions survive a rebuild that changes the hashed asset names.
 
-## Colour theme
+## Color theme
 
-All colours are CSS custom properties: Tailwind's `@theme` tokens (`--color-accent`, `--color-fg`…) and, for Home, `--ember*` and `--paper*` (with `*-rgb` triples for `rgb(var(--ember-rgb) / 0.4)`).
+All colors are CSS custom properties: Tailwind's `@theme` tokens (`--color-accent`, `--color-fg`…) and, for Home, `--ember*` and `--paper*` (with `*-rgb` triples for `rgb(var(--ember-rgb) / 0.4)`).
 `src/app.css` holds the classic values. `utils/palette.ts` picks swatches from a picture's pixels in OKLCH (hue votes weighted by chroma, dark and blown-out pixels discounted, accent lightness fixed so it
-reads on black) and builds the variables; `engine/theme.ts` samples the wallpaper on a 64 px canvas and sets or removes the properties on `<html>` (and tells the ember field). `AppSettings.themeSource` (`classic`, `wallpaper`, `custom`) decides where the two accents come from: the wallpaper's (stored as `themeSwatches`, so the picture is read once) or the user's picks (`customAccent`, `customAccent2`, turned into accents by `accentFromColor`, which lightens a colour that would not read on black). `settings.#applyStored()` builds the variables and applies them; `settings.init()` does it before anything is drawn. `ui/ColorPicker.svelte` is the picker. Main relaxes CORS for images as well as media so a linked wallpaper can be read.
+reads on black) and builds the variables; `engine/theme.ts` samples the wallpaper on a 64 px canvas and sets or removes the properties on `<html>` (and tells the ember field). `AppSettings.themeSource` (`classic`, `wallpaper`, `custom`) decides where the two accents come from: the wallpaper's (stored as `themeSwatches`, so the picture is read once) or the user's picks (`customAccent`, `customAccent2`, turned into accents by `accentFromColor`, which lightens a color that would not read on black). `settings.#applyStored()` builds the variables and applies them; `settings.init()` does it before anything is drawn. `ui/ColorPicker.svelte` is the picker. Main relaxes CORS for images as well as media so a linked wallpaper can be read.
 
 ## Audio tracks and subtitles
 

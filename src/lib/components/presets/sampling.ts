@@ -31,7 +31,7 @@ export function openClip(src: string, name: string, opts: { objectUrl?: string; 
     el.className = 'size-full object-contain';
     if (opts.cors) el.crossOrigin = 'anonymous';
     el.addEventListener('loadeddata', () => resolve({ el, name, objectUrl: opts.objectUrl }), { once: true });
-    el.addEventListener('error', () => reject(new Error('This file cannot be played here. MP4 (H.264) and WebM play everywhere.')), {
+    el.addEventListener('error', () => reject(new Error('This file can’t be played here. MP4 (H.264) and WebM play everywhere.')), {
       once: true
     });
     el.src = src;

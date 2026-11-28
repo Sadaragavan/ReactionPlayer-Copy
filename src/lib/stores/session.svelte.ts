@@ -201,10 +201,10 @@ class SessionStore {
     try {
       raw = JSON.parse(text);
     } catch {
-      return { error: 'That file is not a Reaction Player session.' };
+      return { error: 'That isn’t a Reaction Player session file.' };
     }
     const imported = parseConfig(raw);
-    if (!imported) return { error: 'That file is not a Reaction Player session.' };
+    if (!imported) return { error: 'That isn’t a Reaction Player session file.' };
     this.saved = [imported, ...this.saved].sort(byRecent);
     await idbPut('sessions', clone(imported));
     return imported;
@@ -478,7 +478,7 @@ class SessionStore {
       this.schedule();
     } else this.updateVideo(id, patch);
     this.missing = this.missing.filter((m) => m !== id);
-    if (differs) ui.toast(`“${picked.name}” is not the file saved with this layer (“${saved?.fileName}”). Check that it lines up.`, 'info');
+    if (differs) ui.toast(`“${picked.name}” isn’t the file saved with this layer (“${saved?.fileName}”). Check that it lines up.`, 'info');
   }
 
   /* ── layout ── */

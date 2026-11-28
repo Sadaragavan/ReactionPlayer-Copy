@@ -39,9 +39,9 @@ type Palette = Uint8Array; // 256 × [r, g, b, a]
 /* ── run-length decoding ── */
 
 /**
- * The bitmap's rows: a byte other than 0 is one pixel of that colour; 0 introduces a run or a line end:
+ * The bitmap's rows: a byte other than 0 is one pixel of that color; 0 introduces a run or a line end:
  *   00 00            end of line          00 4n / 00 4n nn    n zeros (6 or 14 bit count)
- *   00 8n cc / 00 Cn nn cc   n pixels of colour cc
+ *   00 8n cc / 00 Cn nn cc   n pixels of color cc
  */
 export function decodeRle(data: Uint8Array, w: number, h: number): Uint8Array {
   const px = new Uint8Array(w * h);
@@ -75,7 +75,7 @@ export function decodeRle(data: Uint8Array, w: number, h: number): Uint8Array {
   return px;
 }
 
-/* ── colour ── */
+/* ── color ── */
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : Math.round(v));
 
@@ -116,7 +116,7 @@ function chunk(type: string, data: Uint8Array): Buffer {
   return out;
 }
 
-/** An 8-bit indexed PNG with per-entry transparency: small, because a subtitle is a few flat colours. */
+/** An 8-bit indexed PNG with per-entry transparency: small, because a subtitle is a few flat colors. */
 export function encodePng(pixels: Uint8Array, w: number, h: number, palette: Palette): Buffer {
   const used = pixels.reduce((m, p) => (p > m ? p : m), 0) + 1;
   const plte = Buffer.alloc(used * 3);
@@ -133,7 +133,7 @@ export function encodePng(pixels: Uint8Array, w: number, h: number, palette: Pal
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
   ihdr[8] = 8; // bit depth
-  ihdr[9] = 3; // indexed colour
+  ihdr[9] = 3; // indexed color
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('PLTE', plte), chunk('tRNS', trns), chunk('IDAT', deflateSync(raw)), chunk('IEND', new Uint8Array(0))]);
 }
 

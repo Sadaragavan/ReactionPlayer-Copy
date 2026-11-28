@@ -20,7 +20,7 @@
 <PageShell>
   <h1 class="title-wide text-[28px] md:text-[34px]">Settings</h1>
 
-  <nav class="mt-7 -mx-5 flex overflow-x-auto border-b border-line px-5 md:mx-0 md:px-0" aria-label="Settings sections">
+  <nav class="mt-7 -mx-5 flex overflow-x-auto border-b border-line px-5 [scrollbar-width:none] md:mx-0 md:px-0" aria-label="Settings sections">
     {#each TABS as t (t.id)}
       {@const on = t.id === tab}
       <a

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Range input restyled as a hairline with a yellow fill. The native element
-   * keeps keyboard and screen-reader behaviour; only the paint is custom.
+   * keeps keyboard and screen-reader behavior; only the paint is custom.
    */
   interface Props {
     value: number;

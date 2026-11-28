@@ -27,7 +27,7 @@
       session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink, settings.playback.muteOthers));
       router.go('session');
     } catch {
-      ui.toast('The demo clips could not be loaded.', 'error');
+      ui.toast('Couldn’t load the demo clips.', 'error');
     } finally {
       demoBusy = false;
     }

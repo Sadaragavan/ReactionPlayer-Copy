@@ -9,36 +9,29 @@ import {
   AudioLines,
   ChevronDown,
   Captions,
-  Save,
+  Layers,
   ChevronUp,
   Copy,
   ListPlus,
   Gauge,
   LayoutGrid,
-  Lock,
-  LockOpen,
-  Maximize,
-  Ratio,
   RectangleHorizontal,
   RotateCcw,
   Timer,
   Volume2,
   VolumeX
 } from '@lucide/svelte';
-import { ASPECT_OPTIONS, CANVAS_ASPECTS, OFFSET_STEPS, PLAYBACK_RATES } from '$lib/constants';
-import { setAspect } from '$lib/engine/aspect';
+import { CANVAS_ASPECTS, OFFSET_STEPS, PLAYBACK_RATES } from '$lib/constants';
 import { captureErrorMessage } from '$lib/engine/capture';
 import { playback } from '$lib/engine/playback.svelte';
 import { session } from '$lib/stores/session.svelte';
 import { ui } from '$lib/stores/ui.svelte';
-import { saveLayoutAsPreset } from '$lib/engine/appActions';
 import { mediaTracks } from '$lib/engine/mediaTracks.svelte';
 import { subtitles } from '$lib/engine/subtitles.svelte';
 import { type ZOp, Z_LABEL } from '$lib/engine/zorder';
 import { trackLabel } from '$lib/utils/format';
 import type { ID, IconComponent, MenuEntry } from '$lib/types';
 import { formatOffset } from '$lib/utils/format';
-import { toggleFullscreen } from '$lib/utils/fullscreen';
 
 type TrackList = ArrayLike<{ label: string; language: string; enabled: boolean }>;
 
@@ -91,45 +84,44 @@ export function videoMenu(id: ID): MenuEntry[] {
   const t = s?.alignment.coordinates[id];
   if (!s || !v || !t) return [];
   const isMaster = s.masterId === id;
-  const tracks = audioTracks(id);
   const locked = s.alignment.locked;
+  const audio = audioMenu(id);
 
   return [
-    { id: 'copy', label: 'Copy frame to clipboard', icon: Copy, onSelect: () => void copyFrame(id) },
-    { id: 'master', label: 'Set as master audio source', icon: Volume2, checked: isMaster, onSelect: () => playback.setMaster(id) },
-    isMaster
-      ? { id: 'offset', label: 'Sync offset', icon: Timer, hint: 'Master clock', disabled: true }
-      : {
-          type: 'stepper',
-          id: 'offset',
-          label: s.isLinked ? 'Sync offset' : 'Nudge playhead',
-          icon: Timer,
-          value: () => formatOffset(offsetMs(id)),
-          steps: [...OFFSET_STEPS],
-          onStep: (ms: number) => nudge(id, ms),
-          onReset: () => zeroOffset(id)
-        },
-    {
-      id: 'reset',
-      label: 'Reset viewport alignment',
-      icon: RotateCcw,
-      hint: locked ? 'Locked' : undefined,
-      disabled: locked,
-      onSelect: () => session.resetLayer(id)
-    },
-    ...(v?.role === 'source'
-      ? ([{ id: 'add-source', label: 'Add another source…', icon: ListPlus, onSelect: () => (ui.addSourceOpen = true) }] as MenuEntry[])
-      : []),
-    { type: 'separator', id: 'sep-z' },
-    ...Z_ENTRIES.map(({ op, icon, hint }) => ({
-      id: `z-${op}`,
-      label: Z_LABEL[op],
-      icon,
-      hint: locked ? 'Locked' : hint,
-      disabled: !session.canReorderLayer(id, op),
-      onSelect: () => session.reorderLayer(id, op)
-    })),
+    { id: 'copy', label: 'Copy frame', icon: Copy, onSelect: () => void copyFrame(id) },
+    { id: 'mute', label: v.muted ? 'Unmute' : 'Mute', icon: v.muted ? Volume2 : VolumeX, onSelect: () => session.toggleMute(id) },
+    { id: 'master', label: 'Use as master', icon: Volume2, checked: isMaster, onSelect: () => playback.setMaster(id) },
+    // The master is the clock, so it has no offset to nudge.
+    ...(isMaster
+      ? []
+      : ([
+          {
+            type: 'stepper',
+            id: 'offset',
+            label: s.isLinked ? 'Sync offset' : 'Nudge playhead',
+            icon: Timer,
+            value: () => formatOffset(offsetMs(id)),
+            steps: [...OFFSET_STEPS],
+            onStep: (ms: number) => nudge(id, ms),
+            onReset: () => zeroOffset(id)
+          }
+        ] as MenuEntry[])),
     { type: 'separator', id: 'sep-a' },
+    {
+      id: 'arrange',
+      label: 'Arrange',
+      icon: Layers,
+      disabled: locked,
+      hint: locked ? 'Locked' : undefined,
+      children: Z_ENTRIES.map(({ op, icon, hint }) => ({
+        id: `z-${op}`,
+        label: Z_LABEL[op],
+        icon,
+        hint,
+        disabled: !session.canReorderLayer(id, op),
+        onSelect: () => session.reorderLayer(id, op)
+      }))
+    },
     {
       id: 'speed',
       label: s.isLinked ? 'Speed (all videos)' : 'Speed',
@@ -141,23 +133,11 @@ export function videoMenu(id: ID): MenuEntry[] {
         onSelect: () => session.setRate(id, r)
       }))
     },
-    {
-      id: 'aspect',
-      label: 'Aspect ratio',
-      icon: Ratio,
-      disabled: locked,
-      hint: locked ? 'Locked' : undefined,
-      children: ASPECT_OPTIONS.map((o) => ({ id: `aspect-${o.value}`, label: o.label, checked: t.aspect === o.value, onSelect: () => setAspect(id, o.value) }))
-    },
-    {
-      id: 'fit',
-      label: t.fit === 'cover' ? 'Show whole picture' : 'Fill the viewport',
-      icon: Maximize,
-      onSelect: () => session.setLayer(id, { fit: t.fit === 'cover' ? 'contain' : 'cover' })
-    },
-    audioMenu(id),
+    ...(audio ? [audio] : []),
     subtitleMenu(id),
-    { id: 'mute', label: v.muted ? 'Unmute' : 'Mute', icon: v.muted ? Volume2 : VolumeX, onSelect: () => session.toggleMute(id) }
+    ...(v.role === 'source'
+      ? ([{ type: 'separator', id: 'sep-b' }, { id: 'add-source', label: 'Add another source…', icon: ListPlus, onSelect: () => (ui.addSourceOpen = true) }] as MenuEntry[])
+      : [])
   ];
 }
 
@@ -165,7 +145,7 @@ export function videoMenu(id: ID): MenuEntry[] {
  * The Audio track submenu. The list comes from the file's container, because Chromium hides the tracks it cannot decode
  * (AC-3, DTS…): those are listed too, and played from a converted copy. Without a container list (a browser) it is Chromium's own.
  */
-function audioMenu(id: ID): MenuEntry {
+function audioMenu(id: ID): MenuEntry | null {
   const v = session.video(id);
   const found = mediaTracks.probes[session.mediaIdOf(v ?? { id })]?.audio ?? [];
   if (found.length > 1) {
@@ -187,7 +167,7 @@ function audioMenu(id: ID): MenuEntry {
     };
   }
   const tracks = audioTracks(id);
-  if (!tracks) return { id: 'track', label: 'Audio track', icon: AudioLines, hint: 'Single track', disabled: true };
+  if (!tracks) return null;
   return {
     id: 'track',
     label: 'Audio track',
@@ -217,7 +197,7 @@ function subtitleMenu(id: ID): MenuEntry {
     entries.push({
       id: `sub-${t.track}`,
       label: setting.label,
-      hint: t.supported ? undefined : 'Pictures, cannot show',
+      hint: t.supported ? undefined : 'Image-based, can’t show',
       disabled: !t.supported,
       checked: current?.kind === 'embedded' && current.track === t.track,
       onSelect: () => subtitles.choose(id, { ...setting, delayMs: current?.delayMs })
@@ -275,7 +255,6 @@ export function stageMenu(): MenuEntry[] {
         onSelect: () => session.setCanvasAspect(a.value)
       }))
     },
-    { id: 'lock', label: locked ? 'Unlock viewports' : 'Lock viewports', icon: locked ? LockOpen : Lock, onSelect: () => session.toggleLocked() },
     {
       id: 'reset-all',
       label: 'Reset all viewports',
@@ -283,16 +262,6 @@ export function stageMenu(): MenuEntry[] {
       disabled: locked,
       hint: locked ? 'Locked' : undefined,
       onSelect: () => s.videos.forEach((v) => session.resetLayer(v.id))
-    },
-    { id: 'save-preset', label: s.presetId ? 'Update layout preset' : 'Save layout as preset', icon: Save, onSelect: () => void saveLayoutAsPreset() },
-    { type: 'separator', id: 'sep-stage' },
-    {
-      id: 'theater',
-      label: s.isTheaterMode ? 'Leave theater mode' : 'Theater mode',
-      icon: RectangleHorizontal,
-      hint: 'T',
-      onSelect: () => session.setTheater(!s.isTheaterMode)
-    },
-    { id: 'fullscreen', label: 'Fullscreen', icon: Maximize, hint: 'F', onSelect: () => void toggleFullscreen() }
+    }
   ];
 }

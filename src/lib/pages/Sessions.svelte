@@ -82,7 +82,7 @@
       <h1 class="title-wide text-[28px] md:text-[34px]">Load session</h1>
       <p class="mt-2 text-fg-2">{total ? plural(total, 'saved session') : 'Nothing saved yet'}</p>
     </div>
-    <Button variant="secondary" icon={Upload} onclick={importConfig}>Import config</Button>
+    <Button variant="secondary" icon={Upload} onclick={importConfig}>Import</Button>
   </div>
 
   {#if total === 0}
@@ -96,6 +96,8 @@
       </EmptyState>
     </div>
   {:else}
+    <!-- Search and sort only earn their place once there is a list to search. -->
+    {#if session.saved.length > 4}
     <div class="mt-8 flex flex-wrap items-center gap-3">
       <label class="relative max-w-md min-w-56 flex-1">
         <Search size={16} strokeWidth={1.8} class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-3" />
@@ -113,6 +115,7 @@
       </label>
       <Segmented class="ml-auto" label="Sort sessions" options={SORTS} value={sort} onchange={(v) => (sort = v)} />
     </div>
+    {/if}
 
     {#if shown.length === 0}
       <div class="mt-6">

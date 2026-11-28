@@ -5,7 +5,7 @@
    * It fades with the rest of the HUD (see hud.svelte.ts) and, in theater mode,
    * floats over the picture instead of pushing it down.
    */
-  import { House, Keyboard, LayoutGrid, Lock, LockOpen, Maximize, Minimize, PanelRight, RectangleHorizontal, Save } from '@lucide/svelte';
+  import { House, Keyboard, Lock, LockOpen, Maximize, Minimize, PanelRight, RectangleHorizontal, Save } from '@lucide/svelte';
   import IconButton from '$lib/components/ui/IconButton.svelte';
   import { saveLayoutAsPreset } from '$lib/engine/appActions';
   import { playback } from '$lib/engine/playback.svelte';
@@ -14,7 +14,6 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { isFullscreen, onFullscreenChange, toggleFullscreen } from '$lib/utils/fullscreen';
   import { onMount } from 'svelte';
-  import { stageMenu } from '../player/menus';
   import { TOP_H } from './metrics';
 
   interface Props {
@@ -104,7 +103,6 @@
 
   <span class="min-w-0 flex-1"></span>
 
-  <IconButton icon={LayoutGrid} label="Layout and canvas" side="bottom" onclick={(e) => ui.openMenuAt(e.currentTarget, stageMenu())} />
   <IconButton
     icon={locked ? Lock : LockOpen}
     label={locked ? 'Viewports locked: click to unlock' : 'Lock viewports'}

@@ -58,7 +58,7 @@
   </div>
 
   {#if items.length < 2}
-    <p class="mt-1.5 text-[12px] leading-snug text-fg-3">One source. Reacting to several episodes? Add them and they play here, one after another.</p>
+    <p class="mt-1.5 text-[12px] leading-snug text-fg-3">Add more episodes to play after this one.</p>
   {:else}
     <ol class="mt-2 flex flex-col">
       {#each items as it, i (it.id)}

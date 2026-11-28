@@ -11,14 +11,14 @@
    * single unlock button, so nothing can shift by accident.
    * The foot of the panel applies a layout or a saved preset, or saves the current one as a preset.
    */
-  import { AudioLines, ChevronDown, ChevronUp, Eye, EyeOff, Film, GripVertical, Layers, Lock, LockOpen, RotateCcw, Save, UserRound, X } from '@lucide/svelte';
+  import { AudioLines, Eye, EyeOff, Film, GripVertical, Layers, Lock, LockOpen, RotateCcw, Save, UserRound, X } from '@lucide/svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import IconButton from '$lib/components/ui/IconButton.svelte';
   import LayoutPreview from '$lib/components/ui/LayoutPreview.svelte';
   import NumberField from '$lib/components/ui/NumberField.svelte';
   import Segmented from '$lib/components/ui/Segmented.svelte';
   import Slider from '$lib/components/ui/Slider.svelte';
-  import { ASPECT_OPTIONS, MIN_LAYER_SIZE } from '$lib/constants';
+  import { ASPECT_OPTIONS, CANVAS_ASPECTS, MIN_LAYER_SIZE } from '$lib/constants';
   import { setAspect, normAspectOf } from '$lib/engine/aspect';
   import { saveLayoutAsPreset } from '$lib/engine/appActions';
   import { buildLayout } from '$lib/engine/layouts';
@@ -30,7 +30,7 @@
   import { router } from '$lib/stores/router.svelte';
   import { session } from '$lib/stores/session.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import type { AspectLock, Crop, IconComponent, ID, LayoutType, VideoRole } from '$lib/types';
+  import type { AspectLock, CanvasAspect, Crop, IconComponent, ID, LayoutType, VideoRole } from '$lib/types';
   import { clamp, roundTo } from '$lib/utils/geometry';
   import { PANEL_W } from './metrics';
 
@@ -200,8 +200,6 @@
               active={s?.masterId === v.id}
               onclick={() => playback.setMaster(v.id)}
             />
-            <IconButton size="sm" icon={ChevronUp} label="Bring forward" kbd="]" side="left" disabled={!session.canReorderLayer(v.id, 'forward')} onclick={() => session.reorderLayer(v.id, 'forward')} />
-            <IconButton size="sm" icon={ChevronDown} label="Send backward" kbd="[" side="left" disabled={!session.canReorderLayer(v.id, 'backward')} onclick={() => session.reorderLayer(v.id, 'backward')} />
             <IconButton
               size="sm"
               icon={lt?.locked ? Lock : LockOpen}
@@ -294,6 +292,12 @@
       {/each}
     </div>
     <label class="mt-3 flex items-center gap-3">
+      <span class="w-14 shrink-0 text-[11.5px] text-fg-3">Canvas</span>
+      <select class="input h-8 flex-1 text-[12.5px]" aria-label="Canvas shape" value={s?.canvasAspect ?? 'fill'} onchange={(e) => session.setCanvasAspect(e.currentTarget.value as CanvasAspect)}>
+        {#each CANVAS_ASPECTS as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
+      </select>
+    </label>
+    <label class="mt-2 flex items-center gap-3">
       <span class="w-14 shrink-0 text-[11.5px] text-fg-3">Preset</span>
       <select class="input h-8 flex-1 text-[12.5px]" aria-label="Apply a preset" value={s?.presetId ?? ''} onchange={(e) => usePreset(e.currentTarget.value)}>
         <option value="" disabled>Choose a preset</option>

@@ -72,7 +72,7 @@
   }
 </script>
 
-<Section title="Sync engine" intro="How the videos are kept together while they play.">
+<Section title="Sync" intro="How closely the videos are kept together.">
   <SettingRow
     title="Sync tolerance"
     hint="How far a video can drift from the shared clock before it is corrected. Lower is tighter but adjusts speed more often."
@@ -93,12 +93,18 @@
       onchange={(v) => settings.patchPlayback({ syncToleranceMs: v })}
     />
   </SettingRow>
+</Section>
 
+<Section title="Audio" intro="Which sound you hear.">
   <SettingRow
-    title="Master audio"
-    hint="Which video provides the clock in a new session (and the sound, if “Mute the other videos” is on). Change it later from a video’s right-click menu."
+    title="Master video"
+    hint="Which video provides the clock in a new session, and the sound if “Mute the other videos” is on. Change it later with “Use as master” in a video’s right-click menu."
   >
     <Segmented label="Master audio" options={MASTER} value={p.masterAudio} onchange={(v) => settings.patchPlayback({ masterAudio: v })} />
+  </SettingRow>
+
+  <SettingRow title="Mute the other videos" hint="Off: every video is heard, including the reaction. On: new sessions play only the master’s audio (change it any time from a video’s menu).">
+    <Switch label="Mute every video but the master in new sessions" checked={p.muteOthers} onchange={(v) => settings.patchPlayback({ muteOthers: v })} />
   </SettingRow>
 
   <SettingRow
@@ -107,7 +113,9 @@
   >
     <Switch label="Keep the sound going without the master" checked={p.audioFollowsFootage} onchange={(v) => settings.patchPlayback({ audioFollowsFootage: v })} />
   </SettingRow>
+</Section>
 
+<Section title="Video" intro="How video is drawn and decoded.">
   <SettingRow
     title="Hardware acceleration"
     hint="Composites each layer on the GPU. Auto does it only while something plays. The video decoder is always chosen by Chromium."
@@ -116,7 +124,7 @@
   </SettingRow>
 
   {#if gpu}
-    <SettingRow
+  <SettingRow
       title="Video decoding"
       hint={hardwareDecode
         ? 'The graphics chip decodes video, leaving the processor free for syncing.'
@@ -127,29 +135,25 @@
   {/if}
 </Section>
 
-<Section title="Playback" intro="What a new session starts with.">
+<Section title="Playback" intro="How sessions start and play.">
   <SettingRow title="Start linked" hint="One shared timeline for every video. Unlink to line each one up separately.">
     <Switch label="Start new sessions linked" checked={p.autoLink} onchange={(v) => settings.patchPlayback({ autoLink: v })} />
-  </SettingRow>
-
-  <SettingRow title="Mute the other videos" hint="Off: every video is heard, including the reaction. On: new sessions play only the master’s audio (change it any time from a video’s menu).">
-    <Switch label="Mute every video but the master in new sessions" checked={p.muteOthers} onchange={(v) => settings.patchPlayback({ muteOthers: v })} />
-  </SettingRow>
-
-  <SettingRow title="Ask about another source" hint="Asks whether to add another source when the reaction runs this many minutes past the source. 0 turns it off.">
-    <NumberField class="w-24" caption="min" label="Minutes past the source before asking" value={p.sourcePromptMinutes} min={0} max={600} step={1} digits={0} onchange={(v) => settings.patchPlayback({ sourcePromptMinutes: Math.round(v) })} />
-  </SettingRow>
-
-  <SettingRow title="Loop" hint="Start over when the shared timeline reaches its end.">
-    <Switch label="Loop" checked={p.loop} onchange={(v) => settings.patchPlayback({ loop: v })} />
   </SettingRow>
 
   <SettingRow title="Layout" hint="How the viewports are arranged when you start a new session.">
     <Segmented label="Default layout" options={LAYOUTS} value={settings.settings.defaultLayout} onchange={(v) => settings.setDefaultLayout(v)} />
   </SettingRow>
 
+  <SettingRow title="Loop" hint="Start over when the shared timeline reaches its end.">
+    <Switch label="Loop" checked={p.loop} onchange={(v) => settings.patchPlayback({ loop: v })} />
+  </SettingRow>
+
   <SettingRow title="Arrow-key seek" hint="Left and Right jump this far. While paused they step a single frame.">
     <Segmented label="Arrow-key seek distance" options={SEEK} value={p.seekStepSec} onchange={(v) => settings.patchPlayback({ seekStepSec: v })} />
+  </SettingRow>
+
+  <SettingRow title="Ask about another source" hint="Asks whether to add another source when the reaction runs this many minutes past the source. 0 turns it off.">
+    <NumberField class="w-24" caption="min" label="Minutes past the source before asking" value={p.sourcePromptMinutes} min={0} max={600} step={1} digits={0} onchange={(v) => settings.patchPlayback({ sourcePromptMinutes: Math.round(v) })} />
   </SettingRow>
 </Section>
 

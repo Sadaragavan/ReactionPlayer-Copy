@@ -9,7 +9,7 @@
    * bottom and left edges so the menu stays readable, which the preview below
    * leaves out: it shows the picture and the veil, not the menu.
    */
-  import { Check, House, Image as ImageIcon, ImagePlus, Link, Trash, Upload } from '@lucide/svelte';
+  import { Check, Image as ImageIcon, ImagePlus, Link, Trash, Upload } from '@lucide/svelte';
   import { dropzone } from '$lib/actions/dropzone';
   import Button from '$lib/components/ui/Button.svelte';
   import ColorPicker from '$lib/components/ui/ColorPicker.svelte';
@@ -146,7 +146,6 @@
     <div class="mt-4 flex max-w-2xl flex-wrap items-center gap-2">
       <Button variant="primary" icon={ImagePlus} onclick={upload} disabled={busy}>Upload picture</Button>
       <Button variant="secondary" icon={Trash} onclick={remove} disabled={!wallpaper || busy}>Remove</Button>
-      <Button variant="ghost" icon={House} class="ml-auto" onclick={() => router.go('home')}>See Home</Button>
     </div>
 
     <form
@@ -226,12 +225,14 @@
     <SettingRow title="Keep the black base" hint="On: only the accent colors and the cursor glow change (best for OLED screens). Off: text, lines and hover tones are tinted too.">
       <Switch label="Keep the black base" checked={settings.settings.themeKeepBlack} onchange={(v) => settings.setThemeKeepBlack(v)} />
     </SettingRow>
+    {#if settings.settings.themeSource === 'wallpaper' && settings.themeStatus === 'themed'}
     <div class="flex flex-wrap items-center gap-4 py-4 text-[13px]">
       <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-accent)"></span>Accent</span>
       <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-accent-2)"></span>Second accent</span>
       <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--color-fg)"></span>Text</span>
       <span class="flex items-center gap-2"><span class="size-5 border border-line-strong" style="background: var(--ember)"></span>Glow</span>
     </div>
+    {/if}
   {/if}
 
   <SettingRow title="Ask when I pick a wallpaper" hint="After you pick a wallpaper with color in it, ask whether to use its colors.">

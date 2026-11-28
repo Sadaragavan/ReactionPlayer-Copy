@@ -5,6 +5,20 @@ and the version matches `package.json`.
 
 ## [Unreleased]
 
+### Changed: a tidier interface
+
+Controls that appeared in several places on one screen now live in one.
+
+- **Player:** the top bar's layout button is gone; **Canvas** shape moved into the Layers panel next to the layout thumbnails and Preset. Layer rows lose their up and down arrows (drag a row, use `[` and `]`,
+  or right-click → Arrange). The Sources section is one line until there is a second source. The canvas menu keeps only layout, canvas shape and reset; Lock, Theater and Fullscreen are on the top bar.
+- **Layer menu:** 8 entries instead of 13. Aspect ratio, Fill and Reset viewport are in the panel; the four order commands are one **Arrange** submenu; "Audio track" shows only when there are several; the master has no offset to nudge.
+  "Set as master audio source" is now "Use as master", and "Copy frame to clipboard" is "Copy frame".
+- **Save as preset** is in the Layers panel and in the message after Save, no longer also in the canvas menu.
+- **New session:** the two extra-angle slots appear only when you add them, and the demo button is gone (Home has Demo).
+- **Settings:** Preferences is grouped as Sync, Audio, Video and Playback; "Master audio" is now "Master video" (it chooses the clock); the color preview row shows only for wallpaper colors, where there is nothing to pick; the Appearance
+  "See Home" button is gone (the dock has Home); a stray scrollbar beside the tabs is fixed.
+- **Load session:** search and sort appear only with more than four sessions; "Import config" is "Import". **Presets:** one "New preset" button when there are none.
+
 ### Changed: clearer text, quieter terminal
 
 - Wording across the app is shorter and plainer (settings hints, toasts, errors, prompts), uses contractions, and is American English throughout ("color", "gray").

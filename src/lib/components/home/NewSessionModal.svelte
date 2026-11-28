@@ -7,8 +7,7 @@
    * Opened from the dock, or by dropping files on Home (`ui.newSessionFiles` pre-fills the slots).
    */
   import { untrack } from 'svelte';
-  import { ArrowLeft, ArrowRight, Plus, Sparkles } from '@lucide/svelte';
-  import { demoSessionInput, warmDemoClips } from '$lib/engine/demo';
+  import { ArrowLeft, ArrowRight, Plus } from '@lucide/svelte';
   import { MAX_VIDEOS } from '$lib/constants';
   import { pickVideoFiles, pickedUrl, releasePickedUrl, type PickedFile } from '$lib/engine/media';
   import { probeVideo } from '$lib/engine/probe';
@@ -30,6 +29,8 @@
   let slots = $state<(SlotData | null)[]>([null, null, null, null]);
   /** Further sources that play after the first, in order. */
   let more = $state<(SlotData | null)[]>([]);
+  /** How many of the two optional extra angles are on show. Extras that hold a video always show. */
+  let extras = $state(0);
   let layout = $state<Exclude<LayoutType, 'custom'>>('split');
   let preset = $state<Preset | null>(null);
   let canvas = $state<CanvasAspect>('16:9');
@@ -38,6 +39,7 @@
 
   const maxVideos = MAX_VIDEOS;
   const MAX_SOURCES = 20;
+  const shownExtras = $derived(Math.max(extras, slots[3] !== null ? 2 : slots[2] !== null ? 1 : 0));
   const filled = $derived(slots.filter((s): s is SlotData => s !== null));
   const moreFilled = $derived(more.filter((s): s is SlotData => s !== null));
   const good = (s: SlotData | null) => !!s && !s.busy && !s.error;
@@ -50,6 +52,7 @@
       step = 1;
       slots = [null, null, null, null];
       more = [];
+      extras = 0;
       const wanted = ui.newSessionPreset;
       ui.newSessionPreset = null;
       preset = wanted;
@@ -137,12 +140,6 @@
     router.go('session');
   }
 
-  async function demo() {
-    await warmDemoClips();
-    session.create(demoSessionInput(settings.settings.defaultLayout, settings.playback.masterAudio, settings.playback.autoLink, settings.playback.muteOthers));
-    close();
-    router.go('session');
-  }
 </script>
 
 <Modal open={ui.newSessionOpen} onclose={close} title="New session" width="max-w-2xl">
@@ -159,6 +156,7 @@
     {#if step === 1}
       <div class="space-y-3">
         {#each slots as slot, i (i)}
+          {#if i < 2 || i - 1 <= shownExtras}
           <VideoSlot
             role={roleForIndex(i)}
             label={i > 1 ? `${ROLE_LABEL.extra} ${i - 1}` : ROLE_LABEL[roleForIndex(i)]}
@@ -169,6 +167,7 @@
             onurl={(u) => setUrl(i, u)}
             onclear={() => (slots[i] = null)}
           />
+          {/if}
           {#if i === 0}
             {#each more as extra, k (k)}
               <VideoSlot
@@ -185,6 +184,9 @@
             <Button variant="ghost" size="sm" icon={Plus} onclick={addSource}>Add another source</Button>
           {/if}
         {/each}
+        {#if shownExtras < 2}
+          <Button variant="ghost" size="sm" icon={Plus} onclick={() => (extras = shownExtras + 1)}>Add an extra angle</Button>
+        {/if}
       </div>
     {:else}
       <LayoutStep
@@ -201,7 +203,6 @@
 
   {#snippet footer()}
     {#if step === 1}
-      <Button variant="ghost" icon={Sparkles} class="mr-auto" onclick={demo}>Try the demo</Button>
       <Button variant="primary" disabled={!ready} onclick={() => (step = 2)}>
         Next<ArrowRight size={16} strokeWidth={1.9} />
       </Button>
